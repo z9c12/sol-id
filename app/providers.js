@@ -9,7 +9,7 @@ import { useMemo } from 'react';
 export function Providers({ children }) {
   const network = WalletAdapterNetwork.Mainnet;
   
-  const endpoint = process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL || 
+  const endpoint = `${process.env.NEXT_PUBLIC_APP_URL}/api/rpc`|| 
                    'https://api.mainnet-beta.solana.com';
 
   const wallets = useMemo(() => [
