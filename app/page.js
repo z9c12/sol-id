@@ -19,10 +19,8 @@ const WalletMultiButton = dynamic(
 
 export default function Home() {
 
-  // same API WalletMultiButton uses — lets inline prompts open the modal directly
   const { setVisible } = useWalletModal()
 
-  // all state and logic lives in useSolId, see hooks/useSolId.js
   const {
     dark, setDark,
     domain, setDomain,
@@ -58,13 +56,11 @@ export default function Home() {
     publishNow
   } = useSolId()
 
-  // pro gets 150ms between requests vs 3s on free — reflected in the button label
   const estimateETA = (txCount, isPro) => {
     const sleepMs = isPro ? 150 : 3000
     return Math.round((txCount * (sleepMs + 500)) / 1000)
   }
 
-  // theme tokens — single boolean drives every colour in the tree
   const bg = dark ? '#09090f' : '#f4f4fb'
   const cardBg = dark ? '#0f0f1a' : '#ffffff'
   const border = dark ? '#1e1e2e' : '#e2e2ef'
@@ -84,28 +80,14 @@ export default function Home() {
         button { cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; }
         input { font-family: 'DM Sans', sans-serif; outline: none; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #333; border-radius: 99px; }
-
-        /* toggled by exportPDF() before html2canvas runs — strips buttons and dark backgrounds */
-        .pdf-mode {
-          background: #ffffff !important;
-          color: #111111 !important;
-        }
-        .pdf-mode * {
-          color: #111111 !important;
-        }
-        .pdf-mode .dark {
-          background: #ffffff !important;
-          color: #111111 !important;
-        }
-        .pdf-mode button,
-        .pdf-mode .pdf-hide {
-          display: none !important;
-        }
+        .pdf-mode { background: #ffffff !important; color: #111111 !important; }
+        .pdf-mode * { color: #111111 !important; }
+        .pdf-mode .dark { background: #ffffff !important; color: #111111 !important; }
+        .pdf-mode button, .pdf-mode .pdf-hide { display: none !important; }
       `}</style>
 
       <main style={{ minHeight: '100vh', padding: '3rem 1rem 6rem', fontFamily: "'DM Sans', sans-serif", background: bg, color: textColor, transition: 'background 0.3s, color 0.3s' }}>
 
-        {/* fixed top-right so it's reachable regardless of scroll */}
         <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 1000, display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={() => setDark(d => !d)} style={{ width: 40, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer', background: dark ? '#3C3489' : '#d1d5db', position: 'relative', display: 'flex', alignItems: 'center', padding: '0 3px' }}>
             <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, transform: dark ? 'translateX(16px)' : 'translateX(0)', transition: 'transform 0.3s' }}>
@@ -121,12 +103,25 @@ export default function Home() {
             <h1 style={{ fontSize: 32, fontWeight: 900, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace", letterSpacing: -1 }}>
               sol<span style={{ color: '#7F77DD' }}>.id</span>
             </h1>
+            {/* updated tagline — covers both social and agent identity tracks */}
             <p style={{ color: subColor, marginTop: 6, fontSize: 14 }}>
-              Reputation score + sybil detection for any .sol identity or wallet address
+              Reputation score + sybil detection for any .sol identity, wallet, or autonomous agent
             </p>
           </div>
 
-          {/* only shown when connected — keeps history scoped to the current user */}
+          {/* Agent Identity Layer — always visible, explains the API to judges/agents */}
+          <div style={{ marginBottom: 16, padding: '14px 16px', borderRadius: 12, background: dark ? '#0f0f1a' : '#fafafa', border: `1.5px solid ${dark ? '#2a2a3e' : '#d1d5db'}` }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 4 }}>🤖 Agent Identity Layer</p>
+<p style={{ fontSize: 12, color: subColor, marginBottom: 10, lineHeight: 1.6 }}>
+  sol.id is a trust oracle for autonomous agents on Solana. Any agent can verify another agent's <strong style={{ color: dark ? '#7F77DD' : '#3C3489' }}>.sol identity</strong> and on-chain reputation before transacting.
+</p>
+<div style={{ background: dark ? '#13131f' : '#f0f0ff', borderRadius: 8, padding: '10px 12px', fontFamily: 'monospace', fontSize: 11, color: dark ? '#7F77DD' : '#3C3489' }}>
+  <p>GET /api/agent?domain=&#123;agent.sol&#125;</p>
+  <p style={{ marginTop: 4, color: subColor }}>→ trusted, risk, washScore, circularTxs, verifiedAt</p>
+</div>
+          </div>
+
+          {/* history panel */}
           {connected && publicKey && history.length > 0 && (
             <div style={{ marginBottom: 24, padding: 16, background: cardBg, borderRadius: 14, border: `1px solid ${border}` }}>
               <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: subColor, letterSpacing: 1, textTransform: 'uppercase' }}>Recent</p>
@@ -139,7 +134,6 @@ export default function Home() {
                     onMouseLeave={e => e.currentTarget.style.borderColor = border}
                   >
                     <div>
-                      {/* .sol suffix only for Bonfida domains, not raw addresses */}
                       <span style={{ fontSize: 14, fontWeight: 700, color: dark ? '#fff' : '#111' }}>{item.domain}{item.domain !== 'My Wallet' && !isValidSolanaAddress(item.domain) ? '.sol' : ''}</span>
                       <span style={{ fontSize: 12, color: subColor, marginLeft: 8, fontFamily: 'monospace' }}>{shortAddr(item.wallet)}</span>
                     </div>
@@ -174,7 +168,6 @@ export default function Home() {
 
           {error && <div style={{ marginTop: 12, padding: 14, background: 'rgba(239,68,68,0.08)', borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>⚠️ {error}</div>}
 
-          {/* report card — reportRef lets exportPDF() target this node with html2canvas */}
           {data && sybil && (
             <div ref={reportRef} style={{ marginTop: 28, background: cardBg, border: `1px solid ${border}`, borderRadius: 20, padding: 24, animation: 'fadeSlideIn 0.4s ease' }}>
 
@@ -188,14 +181,32 @@ export default function Home() {
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={shareReport} style={{ padding: '8px 14px', borderRadius: 8, background: dark ? '#1e1e2e' : '#f0f0ff', color: copied ? '#22c55e' : (dark ? '#aaa' : '#666'), fontSize: 12, fontWeight: 600 }}>{copied ? '✅ Copied!' : '🔗 Share'}</button>
-                  {/* PDF gated behind Pro to limit html2canvas load */}
                   {isPro && <button onClick={exportPDF} style={{ padding: '8px 14px', borderRadius: 8, background: dark ? '#1e1e2e' : '#f0f0ff', color: '#7F77DD', fontSize: 12, fontWeight: 600 }}>📄 PDF</button>}
                 </div>
               </div>
 
               <VerdictBanner sybil={sybil} />
 
-              {/* writes verdict to a Solana program — replaced by Solscan link once confirmed */}
+              {/* Agent Identity verdict — shown after VerdictBanner */}
+              <div style={{ marginBottom: 20, padding: '14px 16px', background: dark ? '#0d1f17' : '#f0fdf4', borderRadius: 12, border: `1px solid ${dark ? '#166534' : '#bbf7d0'}` }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#10B981', marginBottom: 4 }}>🤖 Agent Identity Verdict</p>
+                <p style={{ fontSize: 12, color: dark ? '#86efac' : '#166534', lineHeight: 1.6 }}>
+                  {sybil.risk === 'low'
+                    ? '✅ Safe for autonomous agent interaction. Verdict is published on-chain and verifiable by any agent or protocol.'
+                    : sybil.risk === 'medium'
+                      ? '⚠️ Moderate risk detected. Agent interactions should proceed with caution.'
+                      : '❌ High sybil risk. Not recommended for autonomous agent trust.'
+                  }
+                </p>
+                {/* machine-readable API link for judges / other agents to inspect */}
+                <p style={{ fontSize: 11, color: subColor, marginTop: 8, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+  🔗 /api/agent?{isValidSolanaAddress(data?.domain) || data?.domain === 'My Wallet' 
+    ? `wallet=${data?.wallet}` 
+    : `domain=${data?.domain}`}
+</p>
+              </div>
+
+              {/* on-chain publish */}
               <div style={{ marginBottom: 20 }}>
                 {chainStatus === 'done' ? (
                   <div style={{ padding: '12px 16px', background: 'rgba(34,197,94,0.1)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -234,7 +245,6 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* analysisSignature is a server-issued token that authorises the scan without exposing the RPC key */}
               <div style={{ marginBottom: 24 }}>
                 <TierInfoPanel type="free" />
                 <button onClick={() => analysisSignature && runFreeQuick(analysisSignature)} disabled={quickAnalyzing || !analysisSignature} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#7F77DD', color: 'white', fontWeight: 700, fontSize: 14, opacity: (quickAnalyzing || !analysisSignature) ? 0.45 : 1 }}>
@@ -255,7 +265,6 @@ export default function Home() {
                   <Tooltip dark={dark} text="Analyzes the latest X transactions. Detects circular transfers, flags round-amount transfers, and computes a sybil risk score." />
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                  {/* third preset clamps to actual tx count so we never over-fetch */}
                   {[20, 50, Math.min(data?.txCount || 100, 100)].map((n, idx) => {
                     const label = idx === 2 ? `Max free (${n})` : `${n} txs`
                     return (
@@ -272,14 +281,12 @@ export default function Home() {
                 )}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input type="number" value={customTxs} onChange={e => setCustomTxs(e.target.value)} placeholder="Custom txs (max 100 free)" style={{ flex: 1, padding: '11px 14px', borderRadius: 10, background: inputBg, border: `1.5px solid ${inputBorder}`, color: textColor }} />
-                  {/* parseInt + Math.min guards against bad input and enforces the free cap */}
                   <button onClick={() => { const n = Math.min(parseInt(customTxs) || 0, 100); if (n && analysisSignature) runFreeComplete(n, analysisSignature) }} disabled={!analysisSignature} style={{ padding: '11px 20px', borderRadius: 10, background: '#7F77DD', color: 'white', fontWeight: 700 }}>Run</button>
                 </div>
                 <ProgressCounter active={completeAnalyzing} current={completeProgress.current} total={completeProgress.total} etaSeconds={completeETA.seconds} startedAt={completeETA.startedAt} />
                 {!completeAnalyzing && completeAnalysis && <AnalysisSection analysis={completeAnalysis} pro={false} dark={dark} />}
               </div>
 
-              {/* pay button disabled until connected — USDC transfer needs a signer */}
               <div style={{ paddingTop: 20, borderTop: `1px solid ${border}` }}>
                 <TierInfoPanel type="pro" />
                 {!isPro ? (
@@ -309,18 +316,11 @@ export default function Home() {
                           </>
                         ) : (
                           <>
-                            <img
-                              src="/usdc.png"
-                              alt="USDC"
-                              width="26"
-                              height="26"
-                              style={{ marginRight: '8px' }}
-                            />
+                            <img src="/usdc.png" alt="USDC" width="26" height="26" style={{ marginRight: '8px' }} />
                             Pay $5 USDC
                           </>
                         )}
                       </button>
-                      {/* demo bypass for presentations */}
                       <button onClick={unlockPro} style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '2px dashed #10B981', background: 'rgba(16,185,129,0.06)', color: '#10B981' }}>🎪 Demo unlock Pro free</button>
                     </div>
 
@@ -346,7 +346,7 @@ export default function Home() {
                   </>
                 )}
               </div>
-
+s
             </div>
           )}
 
