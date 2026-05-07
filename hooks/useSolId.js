@@ -280,23 +280,30 @@ export function useSolId() {
   
     let y = 15;
   
+    // === Fixed Solscan link helper (accepts full address for URL) ===
+    const addSolscanLink = (displayText, x, yPos, fullValue, type = 'address') => {
+      if (!fullValue || fullValue.length < 8) return;
+      const cleanDisplay = displayText.replace('...', '').trim();
+      const width = pdf.getTextWidth(cleanDisplay) + 2;
+      const url = type === 'tx'
+        ? `https://solscan.io/tx/${fullValue}`
+        : `https://solscan.io/address/${fullValue}`;
+      pdf.link(x, yPos - 3.5, width, 6.5, { url });
+    };
+  
     // ── Header ───────────────────────────────────────────────────────────────
     pdf.setFillColor(63, 52, 137);
     pdf.rect(0, 0, pageWidth, 32, 'F');
-  
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(28);
     pdf.setFont('helvetica', 'bold');
     pdf.text('sol.id', 22, 22);
-  
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'normal');
     pdf.text('Reputation • Sybil Guard', 110, 22);
-  
     pdf.setFontSize(9);
     const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     pdf.text(date, pageWidth - 72, 22);
-  
     y = 44;
   
     // ── Wallet identity ──────────────────────────────────────────────────────
@@ -308,18 +315,19 @@ export function useSolId() {
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(80, 80, 80);
-    pdf.text(data.wallet || '', 22, y + 8);
+  
+    const walletAddr = data.wallet || '';
+    pdf.text(walletAddr, 22, y + 8);
+    addSolscanLink(walletAddr, 22, y + 8, walletAddr, 'address');
   
     pdf.setFontSize(10);
     pdf.text(`Age: ${walletAge(data.walletAgeDays) || '—'}`, 22, y + 16);
-  
     y += 28;
   
-    // ── Score (needed before badge) ──────────────────────────────────────────
+    // ── Trust badge ──────────────────────────────────────────────────────────
     const bestAnal = proAnalysis || completeAnalysis || quickAnalysis;
     const score = data.score ?? bestAnal?.score ?? 71;
   
-    // ── Trust badge ──────────────────────────────────────────────────────────
     const riskLevel = bestAnal
       ? getSybilRisk({
           balance: data.balance ?? 0,
@@ -339,30 +347,24 @@ export function useSolId() {
   
     pdf.setFillColor(...badgeColor);
     pdf.roundedRect(22, y, 253, 22, 4, 4, 'F');
-  
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(13);
     pdf.setFont('helvetica', 'bold');
     pdf.text(badgeLabel, 36, y + 13);
-  
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
     pdf.text(badgeSub, 36, y + 19);
-  
     y += 32;
   
-    // ── Score ring + stats side by side ─────────────────────────────────────
+    // ── Score ring + stats ───────────────────────────────────────────────────
     const scoreColor = score >= 70 ? '#10b981' : score >= 50 ? '#eab308' : '#ef4444';
-  
     pdf.setDrawColor(scoreColor);
     pdf.setLineWidth(8);
     pdf.circle(42, y + 22, 22, 'S');
-  
     pdf.setFontSize(36);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(scoreColor);
     pdf.text(score.toString(), 42, y + 29, { align: 'center' });
-  
     pdf.setFontSize(8);
     pdf.setTextColor(120, 120, 120);
     pdf.text('/ 100', 42, y + 36, { align: 'center' });
@@ -372,7 +374,6 @@ export function useSolId() {
     pdf.setFont('helvetica', 'bold');
     pdf.text('Reputation Score', 74, y + 18);
   
-    // Stats
     const balance = typeof data.balance === 'number' ? data.balance.toFixed(3) : '0.000';
     const txCount = data.txCount ?? 0;
     const age = walletAge(data.walletAgeDays) || '—';
@@ -382,136 +383,186 @@ export function useSolId() {
       { label: 'TRANSACTIONS', value: txCount.toString(), x: 160 },
       { label: 'WALLET AGE', value: age, x: 230 },
     ];
-  
     stats.forEach(({ label, value, x }) => {
       pdf.setFontSize(7.5);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(130, 130, 130);
       pdf.text(label, x, y + 30);
-  
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(0, 0, 0);
       pdf.text(value, x, y + 40);
     });
-  
     y += 58;
   
-    // ── Wash trading score bar ────────────────────────────────────────────────
+    // ── Wash Trading Score ───────────────────────────────────────────────────
     checkPage(30);
     const washScore = bestAnal?.washScore ?? 0;
-  
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
     pdf.text('Wash Trading Score', 22, y);
-  
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(130, 130, 130);
     const washLabel = washScore < 30 ? 'Clean' : washScore < 60 ? 'Moderate' : 'Suspicious';
     pdf.text(washLabel, 100, y);
-  
     y += 7;
   
     pdf.setFillColor(220, 220, 220);
     pdf.roundedRect(22, y, 230, 8, 4, 4, 'F');
-  
     const barW = Math.max((washScore / 100) * 230, washScore > 0 ? 8 : 0);
     const [br, bg, bb] = washScore < 30 ? [16, 185, 129] : washScore < 60 ? [234, 179, 8] : [239, 68, 68];
     pdf.setFillColor(br, bg, bb);
     if (barW > 0) pdf.roundedRect(22, y, barW, 8, 4, 4, 'F');
-  
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
     pdf.text(`${washScore}/100`, 258, y + 6);
-  
     y += 22;
   
-    // ── Circular transactions ────────────────────────────────────────────────
+    // ── Circular Transactions ────────────────────────────────────────────────
     const circular = bestAnal?.circular || [];
     if (circular.length > 0) {
-      checkPage(30);
+      checkPage(40);
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(0, 0, 0);
       pdf.text(`Circular Transactions Detected: ${circular.length}`, 22, y);
-      y += 7;
+      y += 9;
   
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(80, 80, 80);
-      circular.slice(0, 4).forEach(tx => {
-        checkPage(8);
-        const sig = typeof tx === 'string' ? tx : (tx.signature || tx.tx || 'Unknown');
-        pdf.text(`• ${sig.slice(0, 60)}...`, 22, y);
-        y += 6;
+  
+      circular.slice(0, 6).forEach(item => {
+        checkPage(10);
+        const short = item.addr || shortAddr(item.fullAddr);
+        const count = item.count || 0;
+        const sent = Number(item.sent || 0).toFixed(3);
+        const received = Number(item.received || 0).toFixed(3);
+  
+        const line = `• ${short} -> ${count} txs | sent: ${sent} received: ${received} SOL`;
+        pdf.text(line, 22, y);
+  
+        if (item.fullAddr) {
+          const prefixWidth = pdf.getTextWidth(line.split(short)[0] || '• ');
+          addSolscanLink(short, 22 + prefixWidth, y, item.fullAddr, 'address');
+        }
+        y += 7;
       });
-      y += 6;
+      y += 8;
     }
   
-    // ── Suspicious round amounts ──────────────────────────────────────────────
-    const suspicious = bestAnal?.suspiciousRoundAmounts || [];
-    if (suspicious.length > 0) {
-      checkPage(30);
+    // ── Suspicious Round Amounts ─────────────────────────────────────────────
+    const roundAmounts = bestAnal?.roundAmounts || [];
+    if (roundAmounts.length > 0) {
+      checkPage(50);
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(239, 68, 68);
       pdf.text('Suspicious Round Amounts', 22, y);
-      y += 7;
+      y += 8;
   
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(80, 80, 80);
-      suspicious.slice(0, 5).forEach(item => {
-        checkPage(8);
-        pdf.text(`• ${item.tx || item.hash || 'TX'} — ${item.amount ?? item.sol ?? '0'} SOL`, 22, y);
-        y += 6;
+  
+      roundAmounts.slice(0, 8).forEach(item => {
+        checkPage(9);
+        const short = item.addr || shortAddr(item.counterAddr);
+        const amount = Number(item.sol || 0).toFixed(4);
+        const dir = item.direction === 'sent' ? 'sent to' : 'received from';
+  
+        const line = `• ${amount} SOL ${dir} ${short}`;
+        pdf.text(line, 22, y);
+  
+        if (item.txSignature) {
+          const prefixWidth = pdf.getTextWidth(line.split(short)[0] || '• ');
+          addSolscanLink(short, 22 + prefixWidth, y, item.txSignature, 'tx');
+        }
+        y += 7;
       });
       y += 6;
     }
   
-    // ── Top funding sources ───────────────────────────────────────────────────
-    const funding = bestAnal?.topFundingSources || [];
+    // ── Top Funding Sources (now matches frontend style) ─────────────────────
+    const funding = bestAnal?.fundingGraph || [];
     if (funding.length > 0) {
-      checkPage(40);
+      checkPage(70);
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(0, 0, 0);
       pdf.text('Top Funding Sources', 22, y);
       y += 8;
   
+      // Header
       pdf.setFontSize(8.5);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(130, 130, 130);
       pdf.text('Source', 22, y);
-      pdf.text('SOL', 160, y);
-      pdf.text('Txs', 210, y);
+      pdf.text('SOL', 120, y);
+      pdf.text('Transactions', 170, y);
       y += 4;
       pdf.setDrawColor(200, 200, 200);
       pdf.line(22, y, 270, y);
-      y += 5;
+      y += 6;
   
-      pdf.setFontSize(9.5);
+      pdf.setFontSize(9);
       pdf.setTextColor(0, 0, 0);
-      funding.slice(0, 6).forEach(row => {
-        checkPage(10);
-        pdf.text(shortAddr(row.source || row.address || ''), 22, y);
-        pdf.text((row.sol ?? row.amount ?? 0).toFixed(3), 160, y);
-        pdf.text((row.txs ?? row.transactions ?? 0).toString(), 210, y);
-        y += 7;
+  
+      funding.slice(0, 8).forEach(row => {
+        checkPage(18);
+  
+        const short = row.addr || shortAddr(row.fullAddr);
+        const sol = Number(row.sol || 0).toFixed(3);
+        const txList = row.txSignatures || [];
+  
+        // Main line: Source + SOL + tx count
+        pdf.text(short, 22, y);
+        pdf.text(sol, 120, y);
+        pdf.text(`${txList.length} txs`, 170, y);
+  
+        if (row.fullAddr) {
+          addSolscanLink(short, 22, y, row.fullAddr, 'address');
+        }
+        y += 6;
+  
+        // Show individual transactions (like frontend)
+        if (txList.length > 0) {
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(100, 100, 100);
+  
+          const txsToShow = txList.slice(0, 3); // show max 3 txs per source
+          txsToShow.forEach(txSig => {
+            const shortTx = txSig.slice(0, 8) + '...' + txSig.slice(-6);
+            const txLine = `   ↳ ${shortTx}`;
+            pdf.text(txLine, 28, y);
+  
+            addSolscanLink(shortTx, 28, y, txSig, 'tx');
+            y += 5;
+          });
+  
+          if (txList.length > 3) {
+            pdf.text(`   + ${txList.length - 3} more txs`, 28, y);
+            y += 5;
+          }
+  
+          pdf.setFontSize(9);
+          pdf.setTextColor(0, 0, 0);
+          y += 2;
+        }
       });
     }
   
-    // ── Footer on every page ──────────────────────────────────────────────────
+    // ── Footer ───────────────────────────────────────────────────────────────
     const totalPages = pdf.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       pdf.setPage(i);
       pdf.setFontSize(8);
       pdf.setTextColor(160, 160, 160);
       pdf.text('Full on-chain analysis • Generated by sol.id', 22, pageHeight - 8);
-      pdf.text(`Powered by Solana • Transparent & verifiable  |  Page ${i}/${totalPages}`, pageWidth - 148, pageHeight - 8);
+      pdf.text(`Powered by Solana • Transparent & verifiable | Page ${i}/${totalPages}`, pageWidth - 148, pageHeight - 8);
     }
   
     const filename = data?.domain && !data.domain.startsWith('..')
@@ -520,7 +571,6 @@ export function useSolId() {
   
     pdf.save(filename);
   };
-
   // ── On-chain Memo publish ──────────────────────────────────────────────────
   // After analysis, we write a compact JSON verdict to the Solana blockchain
   // via the Memo program. This makes the sybil verdict publicly verifiable —

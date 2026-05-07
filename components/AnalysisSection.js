@@ -1,6 +1,6 @@
 'use client'
 
-import { TOOLTIPS } from '@/lib/wallet-utils'
+import { TOOLTIPS,shortAddr } from '@/lib/wallet-utils'
 import { Tooltip, FundingTable, WashBar } from './ui'
 
 export default function AnalysisSection({ analysis, pro, dark }) {
