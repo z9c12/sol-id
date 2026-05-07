@@ -270,175 +270,251 @@ export function useSolId() {
   
     const pageWidth = 297;
     const pageHeight = 210;
+  
+    const checkPage = (neededSpace = 20) => {
+      if (y + neededSpace > pageHeight - 15) {
+        pdf.addPage();
+        y = 20;
+      }
+    };
+  
     let y = 15;
   
-    // ── Header ──────────────────────────────────────────────────────────────
+    // ── Header ───────────────────────────────────────────────────────────────
     pdf.setFillColor(63, 52, 137);
-    pdf.rect(0, 0, pageWidth, 35, 'F');
+    pdf.rect(0, 0, pageWidth, 32, 'F');
   
     pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(34);
+    pdf.setFontSize(28);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('sol.id', 22, 25);
+    pdf.text('sol.id', 22, 22);
   
-    pdf.setFontSize(13);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Reputation • Sybil Guard', 115, 25);
+    pdf.text('Reputation • Sybil Guard', 110, 22);
   
-    pdf.setFontSize(10);
+    pdf.setFontSize(9);
     const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    pdf.text(date, pageWidth - 78, 25);
+    pdf.text(date, pageWidth - 72, 22);
   
-    y = 52;
+    y = 44;
   
     // ── Wallet identity ──────────────────────────────────────────────────────
     pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(26);
+    pdf.setFontSize(22);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(data.domain || 'Wallet', 22, y);
+    pdf.text(data.domain || shortAddr(data.wallet) || 'Wallet', 22, y);
   
-    pdf.setFontSize(12);
+    pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(data.wallet || '', 22, y + 11);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text(data.wallet || '', 22, y + 8);
   
-    pdf.setFontSize(11);
-    pdf.text(`Age: ${walletAge(data.walletAgeDays || data.walletAge) || '—'}`, 22, y + 20);
-  
-    y += 38;
-  
-    // ── Trust badge ──────────────────────────────────────────────────────────
-    pdf.setFillColor(16, 185, 129);
-    pdf.roundedRect(22, y, 253, 30, 5, 5, 'F');
-  
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(15);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Trusted Identity', 38, y + 19);
-  
-    pdf.setFontSize(10.5);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Safe for governance & airdrops • Active human user', 38, y + 26);
-  
-    y += 48;
-  
-    // ── Reputation score ring ────────────────────────────────────────────────
-    const score = data.score || bestAnalysis?.score || proAnalysis?.score || completeAnalysis?.score || quickAnalysis?.score || 71;
-    const scoreColor = score >= 70 ? '#10b981' : score >= 50 ? '#eab308' : '#ef4444';
-  
-    pdf.setDrawColor(scoreColor);
-    pdf.setLineWidth(10);
-    pdf.circle(52, y + 28, 29, 'S');
-  
-    pdf.setFontSize(58);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(scoreColor);
-    pdf.text(score.toString(), 52, y + 37, { align: 'center' });
-  
-    pdf.setFontSize(14);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text('/100', 80, y + 39);
-  
-    pdf.setFontSize(15);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Reputation Score', 115, y + 28);
-  
-    y += 75;
-  
-    // ── Stats grid ───────────────────────────────────────────────────────────
-    const balance = data.balance?.toFixed(3) || data.solBalance?.toFixed(3) || '0.000';
-    const txCount = data.txCount || data.transactions || data.tx || '0';
-    const age = walletAge(data.walletAgeDays || data.walletAge) || '—';
-  
-    pdf.setFontSize(9.5);
-    pdf.setTextColor(110, 110, 110);
-    pdf.text('SOL BALANCE', 22, y);
-    pdf.text('TRANSACTIONS', 108, y);
-    pdf.text('WALLET AGE', 194, y);
-  
-    pdf.setFontSize(21);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(balance, 22, y + 15);
-    pdf.text(txCount.toString(), 108, y + 15);
-    pdf.text(age, 194, y + 15);
-  
-    y += 38;
-  
-    // ── Wash trading score bar ───────────────────────────────────────────────
-    // washScore: 0 = clean, 100 = highly suspicious circular trading
-    const washScore = proAnalysis?.washScore || completeAnalysis?.washScore || quickAnalysis?.washScore || analysis?.washScore || sybil?.washScore || 3;
-  
-    pdf.setFontSize(13);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Wash Trading Score', 22, y);
-    y += 9;
-  
-    pdf.setFillColor(230, 230, 230);
-    pdf.roundedRect(22, y, 210, 10, 5, 5, 'F');
-  
-    const barWidth = Math.min((washScore / 100) * 210, 210);
-    pdf.setFillColor(washScore < 30 ? '#10b981' : washScore < 60 ? '#eab308' : '#ef4444');
-    pdf.roundedRect(22, y, barWidth, 10, 5, 5, 'F');
-  
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`${washScore}/100`, 245, y + 8);
+    pdf.setFontSize(10);
+    pdf.text(`Age: ${walletAge(data.walletAgeDays) || '—'}`, 22, y + 16);
   
     y += 28;
   
-    // ── Suspicious round amounts ─────────────────────────────────────────────
-    // Round SOL amounts (e.g. exactly 1.0, 5.0) are a sybil signal
-    const suspicious = proAnalysis?.suspiciousRoundAmounts || completeAnalysis?.suspiciousRoundAmounts || quickAnalysis?.suspiciousRoundAmounts || [];
-    if (suspicious.length > 0) {
-      pdf.setFontSize(13);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text('⚠️ Suspicious Round Amounts', 22, y);
-      y += 8;
+    // ── Score (needed before badge) ──────────────────────────────────────────
+    const bestAnal = proAnalysis || completeAnalysis || quickAnalysis;
+    const score = data.score ?? bestAnal?.score ?? 71;
   
-      pdf.setFontSize(10);
+    // ── Trust badge ──────────────────────────────────────────────────────────
+    const riskLevel = bestAnal
+      ? getSybilRisk({
+          balance: data.balance ?? 0,
+          txCount: data.txCount ?? 0,
+          circularCount: bestAnal?.circular?.length ?? 0,
+          roundCount: bestAnal?.roundAmountCount ?? 0,
+          washScore: bestAnal?.washScore ?? 0,
+        }).risk
+      : score >= 70 ? 'low' : score >= 50 ? 'medium' : 'high';
+  
+    const risk = riskLevel.toLowerCase();
+    const badgeColor = risk === 'low' ? [16, 185, 129] : risk === 'medium' ? [234, 179, 8] : [239, 68, 68];
+    const badgeLabel = risk === 'low' ? 'Trusted Identity' : risk === 'medium' ? 'Moderate Risk' : 'High Risk';
+    const badgeSub = risk === 'low'
+      ? 'Safe for governance & airdrops • Active human user'
+      : 'Review recommended before governance or airdrop inclusion';
+  
+    pdf.setFillColor(...badgeColor);
+    pdf.roundedRect(22, y, 253, 22, 4, 4, 'F');
+  
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(13);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(badgeLabel, 36, y + 13);
+  
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(badgeSub, 36, y + 19);
+  
+    y += 32;
+  
+    // ── Score ring + stats side by side ─────────────────────────────────────
+    const scoreColor = score >= 70 ? '#10b981' : score >= 50 ? '#eab308' : '#ef4444';
+  
+    pdf.setDrawColor(scoreColor);
+    pdf.setLineWidth(8);
+    pdf.circle(42, y + 22, 22, 'S');
+  
+    pdf.setFontSize(36);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(scoreColor);
+    pdf.text(score.toString(), 42, y + 29, { align: 'center' });
+  
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text('/ 100', 42, y + 36, { align: 'center' });
+  
+    pdf.setFontSize(11);
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Reputation Score', 74, y + 18);
+  
+    // Stats
+    const balance = typeof data.balance === 'number' ? data.balance.toFixed(3) : '0.000';
+    const txCount = data.txCount ?? 0;
+    const age = walletAge(data.walletAgeDays) || '—';
+  
+    const stats = [
+      { label: 'SOL BALANCE', value: balance, x: 74 },
+      { label: 'TRANSACTIONS', value: txCount.toString(), x: 160 },
+      { label: 'WALLET AGE', value: age, x: 230 },
+    ];
+  
+    stats.forEach(({ label, value, x }) => {
+      pdf.setFontSize(7.5);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(130, 130, 130);
+      pdf.text(label, x, y + 30);
+  
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(value, x, y + 40);
+    });
+  
+    y += 58;
+  
+    // ── Wash trading score bar ────────────────────────────────────────────────
+    checkPage(30);
+    const washScore = bestAnal?.washScore ?? 0;
+  
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Wash Trading Score', 22, y);
+  
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(130, 130, 130);
+    const washLabel = washScore < 30 ? 'Clean' : washScore < 60 ? 'Moderate' : 'Suspicious';
+    pdf.text(washLabel, 100, y);
+  
+    y += 7;
+  
+    pdf.setFillColor(220, 220, 220);
+    pdf.roundedRect(22, y, 230, 8, 4, 4, 'F');
+  
+    const barW = Math.max((washScore / 100) * 230, washScore > 0 ? 8 : 0);
+    const [br, bg, bb] = washScore < 30 ? [16, 185, 129] : washScore < 60 ? [234, 179, 8] : [239, 68, 68];
+    pdf.setFillColor(br, bg, bb);
+    if (barW > 0) pdf.roundedRect(22, y, barW, 8, 4, 4, 'F');
+  
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`${washScore}/100`, 258, y + 6);
+  
+    y += 22;
+  
+    // ── Circular transactions ────────────────────────────────────────────────
+    const circular = bestAnal?.circular || [];
+    if (circular.length > 0) {
+      checkPage(30);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`Circular Transactions Detected: ${circular.length}`, 22, y);
+      y += 7;
+  
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(80, 80, 80);
-      suspicious.slice(0, 5).forEach(item => {
-        pdf.text(`• ${item.tx || item.hash || 'TX'} — ${item.amount || item.sol || '0'} SOL`, 22, y);
+      circular.slice(0, 4).forEach(tx => {
+        checkPage(8);
+        const sig = typeof tx === 'string' ? tx : (tx.signature || tx.tx || 'Unknown');
+        pdf.text(`• ${sig.slice(0, 60)}...`, 22, y);
         y += 6;
       });
-      y += 8;
+      y += 6;
     }
   
-    // ── Top funding sources ──────────────────────────────────────────────────
-    // Shows which wallets sent the most SOL to this address
-    const funding = proAnalysis?.topFundingSources || completeAnalysis?.topFundingSources || quickAnalysis?.topFundingSources || [];
+    // ── Suspicious round amounts ──────────────────────────────────────────────
+    const suspicious = bestAnal?.suspiciousRoundAmounts || [];
+    if (suspicious.length > 0) {
+      checkPage(30);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(239, 68, 68);
+      pdf.text('Suspicious Round Amounts', 22, y);
+      y += 7;
+  
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(80, 80, 80);
+      suspicious.slice(0, 5).forEach(item => {
+        checkPage(8);
+        pdf.text(`• ${item.tx || item.hash || 'TX'} — ${item.amount ?? item.sol ?? '0'} SOL`, 22, y);
+        y += 6;
+      });
+      y += 6;
+    }
+  
+    // ── Top funding sources ───────────────────────────────────────────────────
+    const funding = bestAnal?.topFundingSources || [];
     if (funding.length > 0) {
-      pdf.setFontSize(13);
+      checkPage(40);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(0, 0, 0);
       pdf.text('Top Funding Sources', 22, y);
       y += 8;
   
-      pdf.setFontSize(9);
-      pdf.setTextColor(100, 100, 100);
+      pdf.setFontSize(8.5);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(130, 130, 130);
       pdf.text('Source', 22, y);
-      pdf.text('SOL', 140, y);
-      pdf.text('Txs', 190, y);
-      y += 6;
+      pdf.text('SOL', 160, y);
+      pdf.text('Txs', 210, y);
+      y += 4;
+      pdf.setDrawColor(200, 200, 200);
       pdf.line(22, y, 270, y);
       y += 5;
   
-      pdf.setFontSize(10);
+      pdf.setFontSize(9.5);
       pdf.setTextColor(0, 0, 0);
       funding.slice(0, 6).forEach(row => {
+        checkPage(10);
         pdf.text(shortAddr(row.source || row.address || ''), 22, y);
-        pdf.text((row.sol || row.amount || 0).toFixed(3), 140, y);
-        pdf.text((row.txs || row.transactions || 0).toString(), 190, y);
+        pdf.text((row.sol ?? row.amount ?? 0).toFixed(3), 160, y);
+        pdf.text((row.txs ?? row.transactions ?? 0).toString(), 210, y);
         y += 7;
       });
     }
   
-    // ── Footer ───────────────────────────────────────────────────────────────
-    pdf.setFontSize(9);
-    pdf.setTextColor(140, 140, 140);
-    pdf.text('Full on-chain analysis • Generated by sol.id', 22, pageHeight - 12);
-    pdf.text('Powered by Solana • Transparent & verifiable', pageWidth - 138, pageHeight - 12);
+    // ── Footer on every page ──────────────────────────────────────────────────
+    const totalPages = pdf.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(160, 160, 160);
+      pdf.text('Full on-chain analysis • Generated by sol.id', 22, pageHeight - 8);
+      pdf.text(`Powered by Solana • Transparent & verifiable  |  Page ${i}/${totalPages}`, pageWidth - 148, pageHeight - 8);
+    }
   
-    const filename = data?.domain
+    const filename = data?.domain && !data.domain.startsWith('..')
       ? `sol-id-report-${data.domain}.pdf`
       : `sol-id-report-${shortAddr(data?.wallet || 'wallet')}.pdf`;
   
@@ -673,6 +749,7 @@ export function useSolId() {
   // bestAnalysis: use the most complete tier available (pro > complete > quick)
   // sybil: final risk verdict computed from wallet stats + analysis signals
   const bestAnalysis = proAnalysis || completeAnalysis || quickAnalysis
+  
   const sybil = data ? getSybilRisk({
     balance: data.balance, txCount: data.txCount,
     circularCount: bestAnalysis?.circular?.length || 0,
