@@ -1,92 +1,198 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { isValidSolanaAddress, calcScore } from '@/lib/wallet-utils'
-import WalletCol from './WalletCol'
+import { useState } from 'react';
+import { isValidSolanaAddress, calcScore } from '@/lib/wallet-utils';
 
 export default function ComparePanel({ dark }) {
-  const [leftInput, setLeftInput] = useState('')
-  const [rightInput, setRightInput] = useState('')
-  const [leftData, setLeftData] = useState(null)
-  const [rightData, setRightData] = useState(null)
-  const [leftLoading, setLeftLoading] = useState(false)
-  const [rightLoading, setRightLoading] = useState(false)
-  const [leftError, setLeftError] = useState(null)
-  const [rightError, setRightError] = useState(null)
+  const [walletA, setWalletA] = useState('');
+  const [walletB, setWalletB] = useState('');
+  const [resultA, setResultA] = useState(null);
+  const [resultB, setResultB] = useState(null);
+  const [errorA, setErrorA] = useState('');
+  const [errorB, setErrorB] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const border = dark ? '#1e1e2e' : '#ddddf0'
-  const textColor = dark ? '#fff' : '#111'
-  const subColor = dark ? '#333' : '#ccc'
+  const cardBg = dark ? '#1a1a2e' : '#ffffff';
+  const inputBg = dark ? '#0f0f1a' : '#f8f8fc';
+  const borderColor = dark ? '#2a2a3e' : '#d1d5db';
+  const textColor = dark ? '#e5e5e5' : '#111';
+  const labelColor = dark ? '#888' : '#666';
 
-  async function fetchWallet(input, setData, setLoading, setError) {
-    if (!input.trim()) return
-    setLoading(true); setError(null); setData(null)
-    try {
-      if (isValidSolanaAddress(input.trim())) {
-        const { Connection, LAMPORTS_PER_SOL, PublicKey } = await import('@solana/web3.js')
-        const connection = new Connection(process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL || 'https://api.mainnet-beta.solana.com')
-        const pubkey = new PublicKey(input.trim())
-        const balanceLamports = await connection.getBalance(pubkey)
-        const balance = balanceLamports / LAMPORTS_PER_SOL
-        const sigs = await connection.getSignaturesForAddress(pubkey, { limit: 100 })
-        const txCount = sigs.length
-        const oldestSig = sigs[sigs.length - 1]
-        const walletAgeDays = oldestSig?.blockTime
-          ? Math.floor((Date.now() / 1000 - oldestSig.blockTime) / 86400) : 0
-        const score = calcScore({ balance, txCount, walletAgeDays })
-        setData({ wallet: input.trim(), domain: input.trim().slice(0,4)+'...'+input.trim().slice(-4), balance, txCount, walletAgeDays, score })
-      } else {
-        const res = await fetch(`/api/lookup?domain=${input.trim()}`)
-        const json = await res.json()
-        if (json.error) throw new Error()
-        const score = calcScore({ balance: json.balance, txCount: json.txCount, walletAgeDays: json.walletAgeDays || 0 })
-        setData({ ...json, score, domain: input.trim() })
-      }
-    } catch {
-      setError('Not found or invalid')
+  // Handles BOTH .sol domains and raw wallet addresses correctly
+  const lookupWallet = async (input) => {
+    const trimmed = input.trim();
+    if (!trimmed) throw new Error('Please enter a domain or address');
+
+    if (isValidSolanaAddress(trimmed)) {
+      // === RAW WALLET ADDRESS (same logic as main page) ===
+      const { Connection, LAMPORTS_PER_SOL, PublicKey } = await import('@solana/web3.js');
+      
+      // Use your proxy first, then fallbacks
+      const rpcUrl = process.env.NEXT_PUBLIC_APP_URL 
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/rpc`
+        : 'https://rpc.ankr.com/solana';
+      
+      const connection = new Connection(rpcUrl);
+      const pubkey = new PublicKey(trimmed);
+
+      const balanceLamports = await connection.getBalance(pubkey);
+      const balance = balanceLamports / LAMPORTS_PER_SOL;
+
+      const sigs = await connection.getSignaturesForAddress(pubkey, { limit: 100 });
+      const txCount = sigs.length;
+
+      const oldestSig = sigs[sigs.length - 1];
+      const walletAgeDays = oldestSig?.blockTime 
+        ? Math.floor((Date.now() / 1000 - oldestSig.blockTime) / 86400) 
+        : 0;
+
+      const score = calcScore({ balance, txCount, walletAgeDays });
+
+      return {
+        wallet: trimmed,
+        domain: trimmed.slice(0, 4) + '...' + trimmed.slice(-4),
+        balance,
+        txCount,
+        walletAgeDays,
+        score
+      };
+    } else {
+      // === .sol DOMAIN ===
+      const res = await fetch(`/api/lookup?domain=${encodeURIComponent(trimmed)}`);
+      if (!res.ok) throw new Error('Domain not found');
+
+      const data = await res.json();
+      const score = calcScore({
+        balance: data.balance,
+        txCount: data.txCount,
+        walletAgeDays: data.walletAgeDays || 0
+      });
+
+      return { ...data, score };
     }
-    setLoading(false)
-  }
+  };
+
+  const handleCompare = async () => {
+    if (!walletA.trim() || !walletB.trim()) {
+      setErrorA(!walletA.trim() ? 'Please enter wallet A' : '');
+      setErrorB(!walletB.trim() ? 'Please enter wallet B' : '');
+      return;
+    }
+
+    setLoading(true);
+    setErrorA('');
+    setErrorB('');
+    setResultA(null);
+    setResultB(null);
+
+    const [resA, resB] = await Promise.allSettled([
+      lookupWallet(walletA),
+      lookupWallet(walletB)
+    ]);
+
+    if (resA.status === 'fulfilled') {
+      setResultA(resA.value);
+    } else {
+      setErrorA(resA.reason?.message || 'Not found or invalid');
+    }
+
+    if (resB.status === 'fulfilled') {
+      setResultB(resB.value);
+    } else {
+      setErrorB(resB.reason?.message || 'Not found or invalid');
+    }
+
+    setLoading(false);
+  };
 
   return (
-    <div style={{ marginTop: 24, padding: 20, background: dark ? '#0a0a14' : '#f4f4fb', borderRadius: 16, border: `1px solid ${border}`, animation: 'fadeSlideIn 0.3s ease' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <p style={{ fontWeight: 800, fontSize: 16, color: textColor, margin: 0 }}>⚖️ Compare Wallets</p>
-        <span style={{ fontSize: 11, color: '#7F77DD' }}>side-by-side</span>
+    <div style={{ marginBottom: 24 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <span style={{ fontSize: 18 }}>⚖️</span>
+        <p style={{ fontSize: 15, fontWeight: 700, color: dark ? '#fff' : '#111', margin: 0 }}>
+          Compare Wallets
+        </p>
+        <span style={{ fontSize: 12, color: '#888', marginLeft: 'auto' }}>side-by-side</span>
       </div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <WalletCol
-          dark={dark} side="left"
-          input={leftInput} onInputChange={setLeftInput}
-          onFetch={() => fetchWallet(leftInput, setLeftData, setLeftLoading, setLeftError)}
-          loading={leftLoading} error={leftError} data={leftData}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', color: subColor, fontWeight: 900, fontSize: 18 }}>vs</div>
-        <WalletCol
-          dark={dark} side="right"
-          input={rightInput} onInputChange={setRightInput}
-          onFetch={() => fetchWallet(rightInput, setRightData, setRightLoading, setRightError)}
-          loading={rightLoading} error={rightError} data={rightData}
-        />
-      </div>
-      {leftData && rightData && (
-        <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: dark ? '#13131f' : '#eeeef8', border: `1px solid ${border}` }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: dark ? '#888' : '#666', marginBottom: 8 }}>VERDICT</p>
-          {leftData.score !== rightData.score ? (
-            <p style={{ fontSize: 13, color: dark ? '#ccc' : '#333', margin: 0 }}>
-              <strong style={{ color: leftData.score > rightData.score ? '#22c55e' : '#ef4444' }}>
-                {leftData.domain}
-              </strong>
-              {' '}scores {Math.abs(leftData.score - rightData.score)} points {leftData.score > rightData.score ? 'higher' : 'lower'} than{' '}
-              <strong style={{ color: rightData.score > leftData.score ? '#22c55e' : '#ef4444' }}>
-                {rightData.domain}
-              </strong>
-            </p>
-          ) : (
-            <p style={{ fontSize: 13, color: dark ? '#ccc' : '#333', margin: 0 }}>Both wallets have identical scores.</p>
+
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        {/* WALLET A */}
+        <div style={{ background: cardBg, border: `1px solid ${borderColor}`, borderRadius: 12, padding: 16, flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: labelColor, letterSpacing: 0.5, marginBottom: 8 }}>
+            WALLET A
+          </p>
+          <input
+            value={walletA}
+            onChange={e => setWalletA(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCompare()}
+            placeholder="domain or address"
+            style={{
+              width: '100%', padding: '10px 14px', borderRadius: 8,
+              border: `1px solid ${borderColor}`, background: inputBg, color: textColor, fontSize: 14
+            }}
+          />
+          {errorA && <p style={{ fontSize: 13, color: '#ef4444', marginTop: 8 }}>⚠️ {errorA}</p>}
+          {resultA && (
+            <div style={{ marginTop: 14 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: textColor, wordBreak: 'break-all' }}>
+                {resultA.domain || resultA.wallet}
+              </p>
+              <p style={{ fontSize: 28, fontWeight: 800, color: '#7F77DD', marginTop: 6 }}>
+                {resultA.score}
+              </p>
+              <p style={{ fontSize: 12, color: labelColor }}>Reputation Score</p>
+            </div>
           )}
         </div>
-      )}
+
+        {/* VS */}
+        <div style={{ display: 'flex', alignItems: 'center', paddingTop: 36, color: '#7F77DD', fontWeight: 700, fontSize: 14 }}>
+          vs
+        </div>
+
+        {/* WALLET B */}
+        <div style={{ background: cardBg, border: `1px solid ${borderColor}`, borderRadius: 12, padding: 16, flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: labelColor, letterSpacing: 0.5, marginBottom: 8 }}>
+            WALLET B
+          </p>
+          <input
+            value={walletB}
+            onChange={e => setWalletB(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCompare()}
+            placeholder="domain or address"
+            style={{
+              width: '100%', padding: '10px 14px', borderRadius: 8,
+              border: `1px solid ${borderColor}`, background: inputBg, color: textColor, fontSize: 14
+            }}
+          />
+          {errorB && <p style={{ fontSize: 13, color: '#ef4444', marginTop: 8 }}>⚠️ {errorB}</p>}
+          {resultB && (
+            <div style={{ marginTop: 14 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: textColor, wordBreak: 'break-all' }}>
+                {resultB.domain || resultB.wallet}
+              </p>
+              <p style={{ fontSize: 28, fontWeight: 800, color: '#7F77DD', marginTop: 6 }}>
+                {resultB.score}
+              </p>
+              <p style={{ fontSize: 12, color: labelColor }}>Reputation Score</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SINGLE GO BUTTON */}
+      <button
+        onClick={handleCompare}
+        disabled={loading || !walletA.trim() || !walletB.trim()}
+        style={{
+          width: '100%', marginTop: 16, padding: '14px', borderRadius: 10,
+          background: '#7F77DD', color: 'white', fontWeight: 700, fontSize: 15,
+          opacity: (loading || !walletA.trim() || !walletB.trim()) ? 0.6 : 1
+        }}
+      >
+        {loading ? 'Comparing...' : 'Go'}
+      </button>
     </div>
-  )
+  );
 }
