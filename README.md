@@ -2,7 +2,9 @@
 
 **On-chain reputation scoring + sybil detection for any .sol identity, wallet, or autonomous agent on Solana.**
 
-Built for the [SNS Identity Track — Colosseum Hackathon](https://earn.superteam.fun) powered by SNS, Superteam MY, and MagicBlock.
+Built for the [SNS Identity Track](https://earn.superteam.fun) and [KIRAPAY Track](https://earn.superteam.fun) at the Colosseum Frontier Hackathon, powered by SNS, Superteam MY, MagicBlock, and KIRAPAY.
+
+Live at: **https://sol-id-iota.vercel.app**
 
 ---
 
@@ -25,6 +27,7 @@ sol.id is an identity verification and sybil-detection layer for Solana. It serv
 - 📄 PDF report export (Pro)
 - ⚖️ Side-by-side wallet comparison
 - 🔗 Shareable report links
+- 💳 Pro unlock via KIRAPAY — pay with any token from any chain
 - 🌙 Dark/light mode
 
 ---
@@ -103,7 +106,24 @@ washScore     = min(100, circularScore + roundScore)
 | Free Complete | Up to 100 txs | ~6 min | Same as Quick, user-defined depth |
 | Pro | All txs (up to 1000) | ~1 min | Full analysis, funding graph, wash score, PDF export |
 
-**Pro** is unlocked via a 5 USDC payment on-chain. The transaction signature serves as verifiable proof of access.
+**Pro** is unlocked via a $5 payment through KIRAPAY. Users can pay with any supported token — no need to hold a specific token. Pro is scoped per-address: each wallet you analyze requires a separate Pro unlock.
+
+> **Note:** KIRAPAY merchant account activation is pending. A demo unlock button is available for judges to test all Pro features without payment.
+
+---
+
+## KIRAPAY Integration
+
+sol.id uses [KIRAPAY](https://kira-pay.com) for Pro unlock payments:
+
+- Users pay $5 to unlock Pro analysis for a specific wallet address
+- Payment opens the KIRAPAY checkout — compatible with 700+ wallets across any blockchain
+- Pro is scoped per-address (`localStorage` key: `pro_${connectedWallet}_${searchedAddress}`)
+- Payment verification is handled server-side via `/api/kirapay-verify` — the API key never reaches the client
+
+**Files:**
+- `hooks/useSolId.js` — `payForPro()` function handles checkout + Pro unlock
+- `app/api/kirapay-verify/route.js` — server-side payment verification via KIRAPAY Transactions API
 
 ---
 
@@ -181,31 +201,30 @@ sol.id is built on top of [Bonfida SNS](https://sns.id):
 
 ```
 app/
-├── page.js                  # Main UI — lookup, report card, agent verdict
+├── page.js                        # Main UI — lookup, report card, agent verdict
 ├── api/
-│   ├── agent/route.js       # Agent Identity API — fast trust verdict
-│   ├── analyze/route.js     # SSE streaming analysis endpoint
-│   ├── lookup/route.js      # SNS domain resolution + wallet data
-│   └── rpc/route.js         # RPC proxy — hides Alchemy key from client
+│   ├── agent/route.js             # Agent Identity API — fast trust verdict
+│   ├── analyze/route.js           # SSE streaming analysis endpoint
+│   ├── kirapay-verify/route.js    # Server-side KIRAPAY payment verification
+│   ├── lookup/route.js            # SNS domain resolution + wallet data
+│   └── rpc/route.js               # RPC proxy — hides Alchemy key from client
 hooks/
-└── useSolId.js              # All state and logic for the UI
+└── useSolId.js                    # All state and logic for the UI
 lib/
-└── wallet-utils.js          # Score formula, sybil risk, helpers
+└── wallet-utils.js                # Score formula, sybil risk, helpers
 ```
 
-**RPC routing:**
-All on-chain calls are proxied through `/api/rpc` which uses Alchemy as the primary endpoint with 3 public fallbacks (Ankr, Extrnode, Solana mainnet-beta). The Alchemy key never reaches the client bundle.
+**RPC routing:** All on-chain calls are proxied through `/api/rpc` which uses Alchemy as the primary endpoint with 3 public fallbacks (Ankr, Extrnode, Solana mainnet-beta). The Alchemy key never reaches the client bundle.
 
-**SSE streaming:**
-The `/api/analyze` endpoint streams `Server-Sent Events` so the UI can show real-time progress as transactions are fetched and analyzed one by one.
+**SSE streaming:** The `/api/analyze` endpoint streams `Server-Sent Events` so the UI can show real-time progress as transactions are fetched and analyzed one by one.
 
 ---
 
 ## Running Locally
 
 ```bash
-git clone https://github.com/yourrepo/sol-identity
-cd sol-identity
+git clone https://github.com/z9c12/sol-id
+cd sol-id
 npm install
 ```
 
@@ -213,6 +232,8 @@ Create `.env.local`:
 ```
 ALCHEMY_RPC_URL=https://solana-mainnet.g.alchemy.com/v2/YOUR_KEY
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_KIRAPAY_API_KEY=your_kirapay_api_key_here
+KIRAPAY_API_KEY=your_kirapay_api_key_here
 ```
 
 ```bash
@@ -229,22 +250,29 @@ Open `http://localhost:3000`
 - **@solana/web3.js** — on-chain data
 - **@bonfida/spl-name-service** — SNS domain resolution
 - **@solana/wallet-adapter** — wallet connection
-- **@solana/spl-token** — USDC payment
+- **kirapay-merchant-sdk** — cross-chain payment checkout
 - **jsPDF** — PDF report generation
 - **Alchemy** — primary RPC provider
 
 ---
 
-## Hackathon Track
+## Hackathon Tracks
 
-Built for the **SNS Identity Track** at the Colosseum Frontier Hackathon (May 2026), hosted by SNS, Superteam MY, and MagicBlock.
+Built for the Colosseum Frontier Hackathon (May 2026).
 
-**Track alignment:**
+**SNS Identity Track** — powered by SNS, Superteam MY, and MagicBlock:
 - ✅ On-chain reputation system using `.sol` as the identity primitive
 - ✅ Sybil resistance tool for DAOs and airdrop campaigns
 - ✅ Agent identity layer — autonomous agents can verify each other via API
 - ✅ On-chain verifiable verdicts via Solana Memo program
 - ✅ Social identity — `.sol` as the universal login and trust layer
+
+**KIRAPAY Track** — Build with KIRAPAY:
+- ✅ KIRAPAY SDK integrated for Pro unlock payments
+- ✅ Cross-chain checkout — users pay with any token from any blockchain
+- ✅ Server-side payment verification via KIRAPAY Transactions API
+- ✅ Per-address Pro unlock — real revenue model, not a demo
+- ✅ KIRAPAY is core to the product, not an add-on
 
 ---
 
