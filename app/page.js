@@ -33,7 +33,7 @@ export default function Home() {
     proAnalysis, proAnalyzing, proProgress, proETA,
     history,
     copied, setCopied,
-    payLoading, payStartedAt, payError,
+    payLoading, payError,
     reportRef,
     chainStatus, chainSig,
     lookup,
@@ -84,7 +84,11 @@ export default function Home() {
         .pdf-mode * { color: #111111 !important; }
         .pdf-mode .dark { background: #ffffff !important; color: #111111 !important; }
         .pdf-mode button, .pdf-mode .pdf-hide { display: none !important; }
+        #kirapay-btn-container { display: none; }
       `}</style>
+
+      {/* Hidden KIRAPAY mount point — button renders here, modal opens programmatically */}
+      <div id="kirapay-btn-container" aria-hidden="true" />
 
       <main style={{ minHeight: '100vh', padding: '3rem 1rem 6rem', fontFamily: "'DM Sans', sans-serif", background: bg, color: textColor, transition: 'background 0.3s, color 0.3s' }}>
 
@@ -103,25 +107,24 @@ export default function Home() {
             <h1 style={{ fontSize: 32, fontWeight: 900, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace", letterSpacing: -1 }}>
               sol<span style={{ color: '#7F77DD' }}>.id</span>
             </h1>
-            {/* updated tagline — covers both social and agent identity tracks */}
             <p style={{ color: subColor, marginTop: 6, fontSize: 14 }}>
               Reputation score + sybil detection for any .sol identity, wallet, or autonomous agent
             </p>
           </div>
 
-          {/* Agent Identity Layer — always visible, explains the API to judges/agents */}
+          {/* Agent Identity Layer */}
           <div style={{ marginBottom: 16, padding: '14px 16px', borderRadius: 12, background: dark ? '#0f0f1a' : '#fafafa', border: `1.5px solid ${dark ? '#2a2a3e' : '#d1d5db'}` }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 4 }}>🤖 Agent Identity Layer</p>
-<p style={{ fontSize: 12, color: subColor, marginBottom: 10, lineHeight: 1.6 }}>
-  sol.id is a trust oracle for autonomous agents on Solana. Any agent can verify another agent's <strong style={{ color: dark ? '#7F77DD' : '#3C3489' }}>.sol identity</strong> and on-chain reputation before transacting.
-</p>
-<div style={{ background: dark ? '#13131f' : '#f0f0ff', borderRadius: 8, padding: '10px 12px', fontFamily: 'monospace', fontSize: 11, color: dark ? '#7F77DD' : '#3C3489' }}>
-  <p>GET /api/agent?domain=&#123;agent.sol&#125;</p>
-  <p style={{ marginTop: 4, color: subColor }}>→ trusted, risk, washScore, circularTxs, verifiedAt</p>
-</div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 4 }}>🤖 Agent Identity Layer</p>
+            <p style={{ fontSize: 12, color: subColor, marginBottom: 10, lineHeight: 1.6 }}>
+              sol.id is a trust oracle for autonomous agents on Solana. Any agent can verify another agent's <strong style={{ color: dark ? '#7F77DD' : '#3C3489' }}>.sol identity</strong> and on-chain reputation before transacting.
+            </p>
+            <div style={{ background: dark ? '#13131f' : '#f0f0ff', borderRadius: 8, padding: '10px 12px', fontFamily: 'monospace', fontSize: 11, color: dark ? '#7F77DD' : '#3C3489' }}>
+              <p>GET /api/agent?domain=&#123;agent.sol&#125;</p>
+              <p style={{ marginTop: 4, color: subColor }}>→ trusted, risk, washScore, circularTxs, verifiedAt</p>
+            </div>
           </div>
 
-          {/* history panel */}
+          {/* History panel */}
           {connected && publicKey && history.length > 0 && (
             <div style={{ marginBottom: 24, padding: 16, background: cardBg, borderRadius: 14, border: `1px solid ${border}` }}>
               <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: subColor, letterSpacing: 1, textTransform: 'uppercase' }}>Recent</p>
@@ -159,10 +162,11 @@ export default function Home() {
           )}
 
           <button onClick={() => setShowCompare(v => !v)} style={{ width: '100%', marginBottom: 8, padding: '12px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${dark ? '#2a2a3e' : '#d1d5db'}`, color: dark ? '#888' : '#666', fontWeight: 600, fontSize: 14 }}>
-            {showCompare ? '✕ Close Compare' : '⚖️ Compare Wallets'}
+            {showCompare ? '✕ Close Compare' : 'Compare Domains'}
           </button>
 
-          {showCompare && <ComparePanel dark={dark} />}
+          {/* FIX: ComparePanel placeholder says "domain" not "wallet" */}
+          {showCompare && <ComparePanel dark={dark} placeholder="Enter domain or address" />}
 
           {isPro && <p style={{ color: '#10B981', textAlign: 'center', marginBottom: 8, fontWeight: 700, fontSize: 14 }}>✅ Pro Unlocked</p>}
 
@@ -187,7 +191,7 @@ export default function Home() {
 
               <VerdictBanner sybil={sybil} />
 
-              {/* Agent Identity verdict — shown after VerdictBanner */}
+              {/* Agent Identity verdict */}
               <div style={{ marginBottom: 20, padding: '14px 16px', background: dark ? '#0d1f17' : '#f0fdf4', borderRadius: 12, border: `1px solid ${dark ? '#166534' : '#bbf7d0'}` }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#10B981', marginBottom: 4 }}>🤖 Agent Identity Verdict</p>
                 <p style={{ fontSize: 12, color: dark ? '#86efac' : '#166534', lineHeight: 1.6 }}>
@@ -198,15 +202,14 @@ export default function Home() {
                       : '❌ High sybil risk. Not recommended for autonomous agent trust.'
                   }
                 </p>
-                {/* machine-readable API link for judges / other agents to inspect */}
                 <p style={{ fontSize: 11, color: subColor, marginTop: 8, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-  🔗 /api/agent?{isValidSolanaAddress(data?.domain) || data?.domain === 'My Wallet' 
-    ? `wallet=${data?.wallet}` 
-    : `domain=${data?.domain}`}
-</p>
+                  🔗 /api/agent?{isValidSolanaAddress(data?.domain) || data?.domain === 'My Wallet'
+                    ? `wallet=${data?.wallet}`
+                    : `domain=${data?.domain}`}
+                </p>
               </div>
 
-              {/* on-chain publish */}
+              {/* On-chain publish */}
               <div style={{ marginBottom: 20 }}>
                 {chainStatus === 'done' ? (
                   <div style={{ padding: '12px 16px', background: 'rgba(34,197,94,0.1)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -216,7 +219,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <button onClick={publishNow} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#7F77DD', color: 'white', fontWeight: 700, fontSize: 15 }}>
-                    📤 Publish Verdict on-chain
+                     Publish Verdict on-chain
                   </button>
                 )}
               </div>
@@ -248,7 +251,7 @@ export default function Home() {
               <div style={{ marginBottom: 24 }}>
                 <TierInfoPanel type="free" />
                 <button onClick={() => analysisSignature && runFreeQuick(analysisSignature)} disabled={quickAnalyzing || !analysisSignature} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#7F77DD', color: 'white', fontWeight: 700, fontSize: 14, opacity: (quickAnalyzing || !analysisSignature) ? 0.45 : 1 }}>
-                  {quickAnalyzing ? <><Spinner size={14} color="#fff" /><span style={{ marginLeft: 8 }}>Analyzing...</span></> : `🔍 Free Quick Analysis — 10 txs · ${formatETA(estimateETA(10, false))}`}
+                  {quickAnalyzing ? <><Spinner size={14} color="#fff" /><span style={{ marginLeft: 8 }}>Analyzing...</span></> : ` Free Quick Analysis — 10 txs · ${formatETA(estimateETA(10, false))}`}
                 </button>
                 {!connected && (
                   <p onClick={() => setVisible(true)} style={{ fontSize: 12, color: '#7F77DD', textAlign: 'center', marginTop: 8, cursor: 'pointer', textDecoration: 'underline' }}>
@@ -287,11 +290,14 @@ export default function Home() {
                 {!completeAnalyzing && completeAnalysis && <AnalysisSection analysis={completeAnalysis} pro={false} dark={dark} />}
               </div>
 
+              {/* Pro section */}
               <div style={{ paddingTop: 20, borderTop: `1px solid ${border}` }}>
                 <TierInfoPanel type="pro" />
                 {!isPro ? (
                   <>
                     <div style={{ display: 'flex', gap: 8 }}>
+
+                      {/* KIRAPAY button — pay $5 with any Solana token */}
                       <button
                         onClick={payForPro}
                         disabled={payLoading || !connected}
@@ -299,34 +305,52 @@ export default function Home() {
                           flex: 2,
                           padding: '14px 16px',
                           borderRadius: 12,
-                          background: '#3C3489',
+                          background: 'linear-gradient(135deg, #3C3489, #6C5CE7)',
                           color: 'white',
                           fontWeight: 700,
-                          opacity: payLoading ? 0.7 : 1,
+                          fontSize: 15,
+                          opacity: (payLoading || !connected) ? 0.7 : 1,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: 8
+                          gap: 8,
+                          border: 'none',
                         }}
                       >
                         {payLoading ? (
-                          <>
-                            <Spinner size={16} color="#fff" />
-                            Processing...
-                          </>
+                          <><Spinner size={16} color="#fff" /> Processing...</>
                         ) : (
-                          <>
-                            <img src="/usdc.png" alt="USDC" width="26" height="26" style={{ marginRight: '8px' }} />
-                            Pay $5 USDC
-                          </>
+                          <>Unlock Pro — $5</>
                         )}
                       </button>
-                      <button onClick={unlockPro} style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '2px dashed #10B981', background: 'rgba(16,185,129,0.06)', color: '#10B981' }}>🎪 Demo unlock Pro free</button>
+
+                      {/* Demo unlock — stays for judges/presentations */}
+                      <button
+                        onClick={unlockPro}
+                        style={{
+                          flex: 1,
+                          padding: '14px 12px',
+                          borderRadius: 12,
+                          border: '2px dashed #10B981',
+                          background: 'rgba(16,185,129,0.06)',
+                          color: '#10B981',
+                          fontWeight: 600,
+                          fontSize: 13,
+                        }}
+                      >
+                         Demo Unlock
+                      </button>
                     </div>
+
+                    {/* Powered by KIRAPAY label */}
+                    <p style={{ fontSize: 11, color: subColor, textAlign: 'center', marginTop: 6 }}>
+                    Pay with any supported token via KIRAPAY · Powered by{' '}
+                      <a href="https://kira-pay.com" target="_blank" rel="noreferrer" style={{ color: '#7F77DD', textDecoration: 'none' }}>KIRAPAY</a>
+                    </p>
 
                     {!connected && !payError && (
                       <p onClick={() => setVisible(true)} style={{ fontSize: 12, color: '#7F77DD', textAlign: 'center', marginTop: 8, cursor: 'pointer', textDecoration: 'underline' }}>
-                        Connect your wallet to pay and unlock Pro
+                        Connect your wallet to unlock Pro
                       </p>
                     )}
 
@@ -339,7 +363,7 @@ export default function Home() {
                 ) : (
                   <>
                     <button onClick={() => analysisSignature && runProAnalysis(analysisSignature)} disabled={proAnalyzing || !analysisSignature} style={{ width: '100%', padding: '15px', borderRadius: 12, background: 'linear-gradient(135deg, #3C3489, #7F77DD)', color: 'white', fontWeight: 700 }}>
-                      {proAnalyzing ? <><Spinner size={15} color="#7F77DD" /><span style={{ marginLeft: 8 }}>Running Deep Analysis...</span></> : `🔬 Run Full Deep Analysis — ${data?.txCount || 50} txs`}
+                      {proAnalyzing ? <><Spinner size={15} color="#7F77DD" /><span style={{ marginLeft: 8 }}>Running Deep Analysis...</span></> : `Run Full Deep Analysis — ${data?.txCount || 50} txs · ${formatETA(estimateETA(data?.txCount || 50, true))}`}
                     </button>
                     <ProgressCounter active={proAnalyzing} current={proProgress.current} total={proProgress.total} etaSeconds={proETA.seconds} startedAt={proETA.startedAt} />
                     {!proAnalyzing && proAnalysis && <AnalysisSection analysis={proAnalysis} pro={true} dark={dark} />}
