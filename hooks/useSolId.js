@@ -217,7 +217,7 @@ export function useSolId() {
             address: 'SOL',
           },
           receiver: '2SN5CQ28hqKaC3xXVU8WgXKKDWygxB1FNMYv9ERGB9cu',
-          originalPrice: 0.1,
+          originalPrice: 5,
           fiatCurrency: 'USD',
           name: 'sol.id Pro — Deep Analysis Unlock',
           customOrderId: `solid-${publicKey.toBase58().slice(0, 8)}-${data.wallet.slice(0, 8)}-${modalOpenedAt}`,
