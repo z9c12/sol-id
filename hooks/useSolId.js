@@ -174,9 +174,6 @@ export function useSolId() {
     if (connected && publicKey && data && !analysisSignature && !signLoading) {
       signBeforeAnalyze()
     }
-    if (!connected && data && !analysisSignature) {
-      setAnalysisSignature('demo')
-    }
   }, [connected, publicKey, data, analysisSignature, signLoading])
 
   // ── Share link auto-lookup ─────────────────────────────────────────────────
@@ -204,6 +201,7 @@ export function useSolId() {
       localStorage.setItem(`pro_${publicKey.toBase58()}`, 'true')
     }
     setIsPro(true)
+    setAnalysisSignature('demo')
   }
 
   const payForPro = async () => {

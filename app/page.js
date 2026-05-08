@@ -149,7 +149,7 @@ export default function Home() {
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <input value={domain} onChange={e => setDomain(e.target.value)} onKeyDown={e => e.key === 'Enter' && lookup()} placeholder="domain (bonfida) or wallet address" style={{ flex: 1, padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${inputBorder}`, background: inputBg, color: textColor, fontSize: 15 }} />
-            <button onClick={lookup} style={{ padding: '14px 22px', borderRadius: 12, background: '#7F77DD', color: 'white', fontWeight: 700, fontSize: 15 }}>{loading ? <Spinner size={16} color="#fff" /> : 'Lookup'}</button>
+            <button onClick={() => lookup()} style={{ padding: '14px 22px', borderRadius: 12, background: '#7F77DD', color: 'white', fontWeight: 700, fontSize: 15 }}>{loading ? <Spinner size={16} color="#fff" /> : 'Lookup'}</button>
           </div>
 
           {connected && publicKey && (
@@ -346,7 +346,7 @@ export default function Home() {
                   </>
                 )}
               </div>
-s
+
             </div>
           )}
 
