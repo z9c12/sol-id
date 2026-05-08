@@ -187,90 +187,87 @@ export function useSolId() {
     setAnalysisSignature(prev => prev || 'demo')
   }
 
-  // KIRAPAY payment — replaces manual USDC SPL transfer
-  // User pays $5 worth of any Solana token → KIRAPAY handles conversion → SOL settled to merchant
-  // On success → Pro unlocked for this searched address only
+
  // ── KIRAPAY payment ───────────────────────────────────────────────────────
   // 1. Renders the KIRAPAY button and programmatically clicks it to open modal
   // 2. Records the timestamp so we can ignore pre-existing transactions
   // 3. Polls /api/kirapay-verify every 3s (server-side, API key stays hidden)
   // 4. On verified → unlocks Pro for this searched address only
   // 5. Stops polling after success or 5 min timeout
+  //waitng for Kirapay to resolve api issues
   const payForPro = async () => {
     if (!publicKey) return
     if (!data?.wallet) return
     setPayLoading(true)
     setPayError(null)
 
-    const CHECKOUT_URL = 'https://checkout.kira-pay.com/41wb8by1gs'
-
     try {
       const modalOpenedAt = Date.now()
 
-      // Open KIRAPAY checkout in new tab — user pays with any token
-      window.open(CHECKOUT_URL, '_blank')
+      // Generate KIRAPAY checkout URL via direct API call
+      const res = await fetch('https://api.kira-pay.com/api/link/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_KIRAPAY_API_KEY,
+        },
+        body: JSON.stringify({
+          tokenOut: {
+            chainId: 'sol',
+            address: 'SOL',
+          },
+          receiver: '2SN5CQ28hqKaC3xXVU8WgXKKDWygxB1FNMYv9ERGB9cu',
+          originalPrice: 0.1,
+          fiatCurrency: 'USD',
+          name: 'sol.id Pro — Deep Analysis Unlock',
+          customOrderId: `solid-${publicKey.toBase58().slice(0, 8)}-${data.wallet.slice(0, 8)}-${modalOpenedAt}`,
+          type: 'single_use',
+        }),
+      })
 
-      // Unlock Pro for this address immediately
-      // TODO: once KIRAPAY activates merchant account, remove the line below
-      // and uncomment the polling block to verify payment server-side
-      setProForAddress(data.wallet)
-      setPayLoading(false)
+      const json = await res.json()
+      console.log('KIRAPAY response:', json)
 
-      // ── POLLING (uncomment when KIRAPAY account is activated) ────────────
-      // const MAX_WAIT_MS = 5 * 60 * 1000
-      // const POLL_INTERVAL_MS = 3000
-      // const deadline = modalOpenedAt + MAX_WAIT_MS
-      //
-      // const poll = async () => {
-      //   if (Date.now() > deadline) {
-      //     setPayLoading(false)
-      //     setPayError('Payment timed out. If you completed payment, refresh and try again.')
-      //     return
-      //   }
-      //   try {
-      //     const verifyRes = await fetch(`/api/kirapay-verify?amount=5&after=${modalOpenedAt}`)
-      //     const verifyJson = await verifyRes.json()
-      //     if (verifyJson.verified) {
-      //       setProForAddress(data.wallet)
-      //       setPayLoading(false)
-      //       setPayError(null)
-      //       return
-      //     }
-      //   } catch (e) {
-      //     console.warn('Poll error:', e)
-      //   }
-      //   setTimeout(poll, POLL_INTERVAL_MS)
-      // }
-      // setTimeout(poll, 5000)
-      // ─────────────────────────────────────────────────────────────────────
+      if (!res.ok || !json?.data?.url) {
+        throw new Error(`KIRAPAY error: ${JSON.stringify(json)}`)
+      }
 
-      // ── SDK (uncomment when KIRAPAY account is activated) ────────────────
-      // const { ButtonDynamicPrice } = await import('kirapay-merchant-sdk/dist/kirapay-merchant-sdk.esm.js')
-      // const button = new ButtonDynamicPrice({
-      //   price: Number(5),
-      //   apiKey: process.env.NEXT_PUBLIC_KIRAPAY_API_KEY,
-      //   title: 'Unlock Pro — $5',
-      //   receiver: '2SN5CQ28hqKaC3xXVU8WgXKKDWygxB1FNMYv9ERGB9cu',
-      //   style: {
-      //     backgroundColor: '#3C3489',
-      //     color: 'white',
-      //     padding: '14px 16px',
-      //     fontSize: '15px',
-      //     fontWeight: '700',
-      //     borderRadius: '12px',
-      //     border: 'none',
-      //     width: '100%',
-      //     cursor: 'pointer',
-      //   }
-      // })
-      // const container = document.getElementById('kirapay-btn-container')
-      // if (container) {
-      //   container.innerHTML = ''
-      //   container.appendChild(button.render())
-      //   const trigger = container.querySelector('button')
-      //   if (trigger) trigger.click()
-      // }
-      // ─────────────────────────────────────────────────────────────────────
+      // Open checkout in new tab — user pays with any token from any chain
+      window.open(json.data.url, '_blank')
+
+      // Poll /api/kirapay-verify every 3s until success or 5 min timeout
+      const MAX_WAIT_MS = 5 * 60 * 1000
+      const POLL_INTERVAL_MS = 3000
+      const deadline = modalOpenedAt + MAX_WAIT_MS
+
+      const poll = async () => {
+        if (Date.now() > deadline) {
+          setPayLoading(false)
+          setPayError('Payment timed out. If you completed payment, refresh and try again.')
+          return
+        }
+
+        try {
+          const verifyRes = await fetch(
+            `/api/kirapay-verify?amount=5&after=${modalOpenedAt}`
+          )
+          const verifyJson = await verifyRes.json()
+
+          if (verifyJson.verified) {
+            setProForAddress(data.wallet)
+            setPayLoading(false)
+            setPayError(null)
+            return
+          }
+        } catch (e) {
+          console.warn('Poll error:', e)
+        }
+
+        setTimeout(poll, POLL_INTERVAL_MS)
+      }
+
+      // Start polling after 5s to let user interact with checkout
+      setTimeout(poll, 15000)
 
     } catch (e) {
       console.error('KIRAPAY error:', e.message)

@@ -42,7 +42,7 @@ export async function GET(request) {
       const match = transactions.find(tx => {
         if (tx.status !== 'Success') return false
         const txTime = new Date(tx.updatedAt || tx.createdAt).getTime() / 1000
-        return txTime >= afterSec - 30 // 30s grace for clock drift
+        return txTime >= afterSec - 130 // 30s grace for clock drift
       })
   
       if (match) {
