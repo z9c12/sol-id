@@ -11,7 +11,6 @@ import WalletCol from '@/components/WalletCol'
 import dynamic from 'next/dynamic'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 
-// SSR disabled — depends on window/localStorage
 const WalletMultiButton = dynamic(
   () => import('@solana/wallet-adapter-react-ui').then((mod) => mod.WalletMultiButton),
   { ssr: false }
@@ -87,7 +86,6 @@ export default function Home() {
         #kirapay-btn-container { display: none; }
       `}</style>
 
-      {/* Hidden KIRAPAY mount point — button renders here, modal opens programmatically */}
       <div id="kirapay-btn-container" aria-hidden="true" />
 
       <main style={{ minHeight: '100vh', padding: '3rem 1rem 6rem', fontFamily: "'DM Sans', sans-serif", background: bg, color: textColor, transition: 'background 0.3s, color 0.3s' }}>
@@ -112,7 +110,6 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Agent Identity Layer */}
           <div style={{ marginBottom: 16, padding: '14px 16px', borderRadius: 12, background: dark ? '#0f0f1a' : '#fafafa', border: `1.5px solid ${dark ? '#2a2a3e' : '#d1d5db'}` }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 4 }}>🤖 Agent Identity Layer</p>
             <p style={{ fontSize: 12, color: subColor, marginBottom: 10, lineHeight: 1.6 }}>
@@ -124,7 +121,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* History panel */}
           {connected && publicKey && history.length > 0 && (
             <div style={{ marginBottom: 24, padding: 16, background: cardBg, borderRadius: 14, border: `1px solid ${border}` }}>
               <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: subColor, letterSpacing: 1, textTransform: 'uppercase' }}>Recent</p>
@@ -165,7 +161,6 @@ export default function Home() {
             {showCompare ? '✕ Close Compare' : 'Compare Domains'}
           </button>
 
-          {/* FIX: ComparePanel placeholder says "domain" not "wallet" */}
           {showCompare && <ComparePanel dark={dark} placeholder="Enter domain or address" />}
 
           {isPro && <p style={{ color: '#10B981', textAlign: 'center', marginBottom: 8, fontWeight: 700, fontSize: 14 }}>✅ Pro Unlocked</p>}
@@ -191,7 +186,6 @@ export default function Home() {
 
               <VerdictBanner sybil={sybil} />
 
-              {/* Agent Identity verdict */}
               <div style={{ marginBottom: 20, padding: '14px 16px', background: dark ? '#0d1f17' : '#f0fdf4', borderRadius: 12, border: `1px solid ${dark ? '#166534' : '#bbf7d0'}` }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#10B981', marginBottom: 4 }}>🤖 Agent Identity Verdict</p>
                 <p style={{ fontSize: 12, color: dark ? '#86efac' : '#166534', lineHeight: 1.6 }}>
@@ -209,7 +203,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* On-chain publish */}
               <div style={{ marginBottom: 20 }}>
                 {chainStatus === 'done' ? (
                   <div style={{ padding: '12px 16px', background: 'rgba(34,197,94,0.1)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -219,7 +212,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <button onClick={publishNow} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#7F77DD', color: 'white', fontWeight: 700, fontSize: 15 }}>
-                     Publish Verdict on-chain
+                    Publish Verdict on-chain
                   </button>
                 )}
               </div>
@@ -232,20 +225,41 @@ export default function Home() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
-                {[
-                  { label: 'SOL Balance', val: data.balance?.toFixed(3), tip: TOOLTIPS.balance },
-                  { label: 'Transactions', val: data.txCount, tip: TOOLTIPS.txCount },
-                  { label: 'Wallet Age', val: walletAge(data.walletAgeDays), tip: TOOLTIPS.walletAge },
-                ].map(s => (
-                  <div key={s.label} style={{ background: dark ? '#13131f' : '#f8f8fc', borderRadius: 12, padding: '14px 10px', textAlign: 'center', border: `1px solid ${border}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
-                      <p style={{ fontSize: 9, color: subColor, textTransform: 'uppercase', letterSpacing: 1 }}>{s.label}</p>
-                      <Tooltip text={s.tip} dark={dark} />
-                    </div>
-                    <p style={{ fontSize: 16, fontWeight: 800, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace" }}>{s.val}</p>
+              {/* ── Stat cards ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                <div style={{ background: dark ? '#13131f' : '#f8f8fc', borderRadius: 12, padding: '14px 10px', textAlign: 'center', border: `1px solid ${border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
+                    <p style={{ fontSize: 9, color: subColor, textTransform: 'uppercase', letterSpacing: 1 }}>SOL Balance</p>
+                    <Tooltip text={TOOLTIPS.balance} dark={dark} />
                   </div>
-                ))}
+                  <p style={{ fontSize: 16, fontWeight: 800, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace" }}>{data.balance?.toFixed(3)}</p>
+                </div>
+                <div style={{ background: dark ? '#13131f' : '#f8f8fc', borderRadius: 12, padding: '14px 10px', textAlign: 'center', border: `1px solid #7F77DD44` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
+                    <p style={{ fontSize: 9, color: subColor, textTransform: 'uppercase', letterSpacing: 1 }}>Wallet Value</p>
+                    <Tooltip text="Total portfolio value in USD including SOL and all tokens" dark={dark} />
+                  </div>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: '#7F77DD', fontFamily: "'Space Mono', monospace" }}>
+                    {data.walletValueUsd != null ? `$${data.walletValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+                <div style={{ background: dark ? '#13131f' : '#f8f8fc', borderRadius: 12, padding: '14px 10px', textAlign: 'center', border: `1px solid ${border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
+                    <p style={{ fontSize: 9, color: subColor, textTransform: 'uppercase', letterSpacing: 1 }}>Transactions</p>
+                    <Tooltip text={TOOLTIPS.txCount} dark={dark} />
+                  </div>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace" }}>{data.txCount}</p>
+                </div>
+                <div style={{ background: dark ? '#13131f' : '#f8f8fc', borderRadius: 12, padding: '14px 10px', textAlign: 'center', border: `1px solid ${border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
+                    <p style={{ fontSize: 9, color: subColor, textTransform: 'uppercase', letterSpacing: 1 }}>Wallet Age</p>
+                    <Tooltip text={TOOLTIPS.walletAge} dark={dark} />
+                  </div>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace" }}>{walletAge(data.walletAgeDays)}</p>
+                </div>
               </div>
 
               <div style={{ marginBottom: 24 }}>
@@ -290,70 +304,34 @@ export default function Home() {
                 {!completeAnalyzing && completeAnalysis && <AnalysisSection analysis={completeAnalysis} pro={false} dark={dark} />}
               </div>
 
-              {/* Pro section */}
               <div style={{ paddingTop: 20, borderTop: `1px solid ${border}` }}>
                 <TierInfoPanel type="pro" />
                 {!isPro ? (
                   <>
                     <div style={{ display: 'flex', gap: 8 }}>
-
-                      {/* KIRAPAY button — pay $5 with any Solana token */}
                       <button
                         onClick={payForPro}
                         disabled={payLoading || !connected}
-                        style={{
-                          flex: 2,
-                          padding: '14px 16px',
-                          borderRadius: 12,
-                          background: 'linear-gradient(135deg, #3C3489, #6C5CE7)',
-                          color: 'white',
-                          fontWeight: 700,
-                          fontSize: 15,
-                          opacity: (payLoading || !connected) ? 0.7 : 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 8,
-                          border: 'none',
-                        }}
+                        style={{ flex: 2, padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #3C3489, #6C5CE7)', color: 'white', fontWeight: 700, fontSize: 15, opacity: (payLoading || !connected) ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none' }}
                       >
-                        {payLoading ? (
-                          <><Spinner size={16} color="#fff" /> Processing...</>
-                        ) : (
-                          <>Unlock Pro — $5</>
-                        )}
+                        {payLoading ? <><Spinner size={16} color="#fff" /> Processing...</> : <>Unlock Pro — $5</>}
                       </button>
-
-                      {/* Demo unlock — stays for judges/presentations */}
                       <button
                         onClick={unlockPro}
-                        style={{
-                          flex: 1,
-                          padding: '14px 12px',
-                          borderRadius: 12,
-                          border: '2px dashed #10B981',
-                          background: 'rgba(16,185,129,0.06)',
-                          color: '#10B981',
-                          fontWeight: 600,
-                          fontSize: 13,
-                        }}
+                        style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '2px dashed #10B981', background: 'rgba(16,185,129,0.06)', color: '#10B981', fontWeight: 600, fontSize: 13 }}
                       >
-                         Demo Unlock
+                        Demo Unlock
                       </button>
                     </div>
-
-                    {/* Powered by KIRAPAY label */}
                     <p style={{ fontSize: 11, color: subColor, textAlign: 'center', marginTop: 6 }}>
-                    Pay with any supported token via KIRAPAY · Powered by{' '}
+                      Pay with any supported token via KIRAPAY · Powered by{' '}
                       <a href="https://kira-pay.com" target="_blank" rel="noreferrer" style={{ color: '#7F77DD', textDecoration: 'none' }}>KIRAPAY</a>
                     </p>
-
                     {!connected && !payError && (
                       <p onClick={() => setVisible(true)} style={{ fontSize: 12, color: '#7F77DD', textAlign: 'center', marginTop: 8, cursor: 'pointer', textDecoration: 'underline' }}>
                         Connect your wallet to unlock Pro
                       </p>
                     )}
-
                     {payError && (
                       <div style={{ marginTop: 12, padding: 14, background: 'rgba(239,68,68,0.08)', borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 14 }}>
                         ⚠️ {payError}

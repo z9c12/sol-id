@@ -6,7 +6,6 @@ import { PublicKey } from '@solana/web3.js'
 import jsPDF from 'jspdf';
 import { isValidSolanaAddress, calcScore, getSybilRisk, shortAddr, walletAge, formatETA, TOOLTIPS, confirmTransactionPolling } from '@/lib/wallet-utils'
 
-// ── RPC config ─────────────────────────────────────────────────────────────
 const RPC_URL = `${process.env.NEXT_PUBLIC_APP_URL}/api/rpc`
 
 const FALLBACKS = [
@@ -28,16 +27,6 @@ async function createConnection() {
   }
   throw new Error('All RPC endpoints failed')
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// useSolId — Core hook powering sol.id
-//
-// Pro unlock is per-address:
-//   - $5 via KIRAPAY unlocks Pro for the currently searched address only
-//   - localStorage key: pro_${connectedWallet}_${searchedAddress}
-//   - Searching a new address resets isPro to false
-//   - Demo button bypasses payment for current address (judges/demo)
-// ─────────────────────────────────────────────────────────────────────────────
 
 export function useSolId() {
   const { publicKey, connected, sendTransaction, signMessage } = useWallet()
@@ -78,7 +67,6 @@ export function useSolId() {
   const [chainStatus, setChainStatus] = useState(null)
   const [chainSig, setChainSig] = useState(null)
 
-  // ── Pro key helpers (per connected wallet + per searched address) ──────────
   const proKey = (searchedWallet) => {
     if (!publicKey || !searchedWallet) return null
     return `pro_${publicKey.toBase58()}_${searchedWallet}`
@@ -96,7 +84,6 @@ export function useSolId() {
     setIsPro(true)
   }
 
-  // ── History ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!connected || !publicKey) { setHistory([]); return }
     const key = `history_${publicKey.toBase58()}`
@@ -104,7 +91,6 @@ export function useSolId() {
     setHistory(saved)
   }, [connected, publicKey])
 
-  // When data changes (new address looked up), re-check Pro status for that address
   useEffect(() => {
     if (data?.wallet) {
       setIsPro(isProForAddress(data.wallet))
@@ -144,7 +130,6 @@ export function useSolId() {
     setChainSig(null)
   }
 
-  // ── Wallet signature before analysis ──────────────────────────────────────
   async function signBeforeAnalyze() {
     if (!publicKey || !signMessage || analysisSignature) return
     setSignLoading(true)
@@ -167,7 +152,6 @@ export function useSolId() {
     }
   }, [connected, publicKey, data, analysisSignature, signLoading])
 
-  // ── Share link auto-lookup ─────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
@@ -178,23 +162,12 @@ export function useSolId() {
     }
   }, [])
 
-  // ── Pro unlock ────────────────────────────────────────────────────────────
-
-  // Demo unlock — bypasses payment, scoped to current searched address only
   const unlockPro = () => {
     if (!data?.wallet) return
     setProForAddress(data.wallet)
     setAnalysisSignature(prev => prev || 'demo')
   }
 
-
- // ── KIRAPAY payment ───────────────────────────────────────────────────────
-  // 1. Renders the KIRAPAY button and programmatically clicks it to open modal
-  // 2. Records the timestamp so we can ignore pre-existing transactions
-  // 3. Polls /api/kirapay-verify every 3s (server-side, API key stays hidden)
-  // 4. On verified → unlocks Pro for this searched address only
-  // 5. Stops polling after success or 5 min timeout
-  //waitng for Kirapay to resolve api issues
   const payForPro = async () => {
     if (!publicKey) return
     if (!data?.wallet) return
@@ -204,7 +177,6 @@ export function useSolId() {
     try {
       const modalOpenedAt = Date.now()
 
-      // Generate KIRAPAY checkout URL via direct API call
       const res = await fetch('https://api.kira-pay.com/api/link/generate', {
         method: 'POST',
         headers: {
@@ -212,10 +184,7 @@ export function useSolId() {
           'x-api-key': process.env.NEXT_PUBLIC_KIRAPAY_API_KEY,
         },
         body: JSON.stringify({
-          tokenOut: {
-            chainId: 'sol',
-            address: 'SOL',
-          },
+          tokenOut: { chainId: 'sol', address: 'SOL' },
           receiver: '2SN5CQ28hqKaC3xXVU8WgXKKDWygxB1FNMYv9ERGB9cu',
           originalPrice: 5,
           fiatCurrency: 'USD',
@@ -232,10 +201,8 @@ export function useSolId() {
         throw new Error(`KIRAPAY error: ${JSON.stringify(json)}`)
       }
 
-      // Open checkout in new tab — user pays with any token from any chain
       window.open(json.data.url, '_blank')
 
-      // Poll /api/kirapay-verify every 3s until success or 5 min timeout
       const MAX_WAIT_MS = 5 * 60 * 1000
       const POLL_INTERVAL_MS = 3000
       const deadline = modalOpenedAt + MAX_WAIT_MS
@@ -246,13 +213,9 @@ export function useSolId() {
           setPayError('Payment timed out. If you completed payment, refresh and try again.')
           return
         }
-
         try {
-          const verifyRes = await fetch(
-            `/api/kirapay-verify?amount=5&after=${modalOpenedAt}`
-          )
+          const verifyRes = await fetch(`/api/kirapay-verify?amount=5&after=${modalOpenedAt}`)
           const verifyJson = await verifyRes.json()
-
           if (verifyJson.verified) {
             setProForAddress(data.wallet)
             setPayLoading(false)
@@ -262,11 +225,9 @@ export function useSolId() {
         } catch (e) {
           console.warn('Poll error:', e)
         }
-
         setTimeout(poll, POLL_INTERVAL_MS)
       }
 
-      // Start polling after 5s to let user interact with checkout
       setTimeout(poll, 15000)
 
     } catch (e) {
@@ -275,6 +236,7 @@ export function useSolId() {
       setPayLoading(false)
     }
   }
+
   const shareReport = async () => {
     if (!data) return
     const url = `${window.location.origin}?wallet=${data.wallet}`
@@ -283,7 +245,6 @@ export function useSolId() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // ── PDF Export ─────────────────────────────────────────────────────────────
   const exportPDF = async () => {
     if (!data) { alert("Run an analysis first before exporting PDF."); return; }
 
@@ -348,7 +309,7 @@ export function useSolId() {
     pdf.setFontSize(11); pdf.setTextColor(30, 30, 30); pdf.setFont('helvetica', 'bold');
     pdf.text('Reputation Score', 74, y + 18);
     [
-      { label: 'SOL BALANCE', value: typeof data.balance === 'number' ? data.balance.toFixed(3) : '0.000', x: 74 },
+      { label: 'WALLET VALUE', value: data.walletValueUsd != null ? `$${data.walletValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${typeof data.balance === 'number' ? data.balance.toFixed(3) : '0.000'} SOL`, x: 74 },
       { label: 'TRANSACTIONS', value: (data.txCount ?? 0).toString(), x: 160 },
       { label: 'WALLET AGE', value: walletAge(data.walletAgeDays) || '—', x: 230 },
     ].forEach(({ label, value, x }) => {
@@ -450,7 +411,6 @@ export function useSolId() {
       : `sol-id-report-${shortAddr(data?.wallet || 'wallet')}.pdf`);
   };
 
-  // ── On-chain Memo publish ──────────────────────────────────────────────────
   const MEMO_PROGRAM = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr')
 
   async function publishToChain(analysis, walletAddr, sybilRisk) {
@@ -498,13 +458,11 @@ export function useSolId() {
     await publishToChain(bestAnalysis, data.wallet, sybil.risk)
   }
 
-  // ── ETA estimation ─────────────────────────────────────────────────────────
   function estimateETA(txCount, isPro) {
     const sleepMs = isPro ? 150 : 3000
     return Math.round((txCount * (sleepMs + 500)) / 1000)
   }
 
-  // ── SSE streaming core ─────────────────────────────────────────────────────
   async function runSSE(url, setAnalysis, setAnalyzing, setProgress, setETA, historyKey, txCountHint, isProMode) {
     setAnalyzing(true)
     setAnalysis(null)
@@ -552,7 +510,6 @@ export function useSolId() {
     setAnalyzing(false)
   }
 
-  // ── Analysis tier launchers ────────────────────────────────────────────────
   const runFreeQuick = (sig) => runSSE(
     `/api/analyze?wallet=${data?.wallet}&pro=false&txs=10&sig=${sig}`,
     setQuickAnalysis, setQuickAnalyzing, setQuickProgress, setQuickETA, 'quickAnalysis', 10, false
@@ -571,12 +528,11 @@ export function useSolId() {
     )
   }
 
-  // ── Wallet / domain lookup ─────────────────────────────────────────────────
   async function lookup(overrideDomain) {
     const input = (overrideDomain || domain).trim()
     if (!input) return
     setLoading(true); setError(null); setData(null)
-    setIsPro(false) // always reset — Pro is per-address, re-checked after load
+    setIsPro(false)
     setQuickAnalysis(null); setCompleteAnalysis(null); setProAnalysis(null)
     setQuickProgress({ current: 0, total: 0 }); setCompleteProgress({ current: 0, total: 0 }); setProProgress({ current: 0, total: 0 })
     setChainStatus(null); setChainSig(null)
@@ -589,6 +545,8 @@ export function useSolId() {
         const pubkey = new PublicKey(input)
         const balanceLamports = await connection.getBalance(pubkey)
         const balance = balanceLamports / LAMPORTS_PER_SOL
+        const heliusRes = await fetch(`/api/helius-balance?wallet=${input}`)
+        const { totalUsd } = await heliusRes.json()
         const sigs = await connection.getSignaturesForAddress(pubkey, { limit: 100 })
         const txCount = sigs.length
         const oldestSig = sigs[sigs.length - 1]
@@ -602,7 +560,7 @@ export function useSolId() {
             hasDomain = true; resolvedDomain = reverseJson.domain; domainAgeDays = reverseJson.domainAgeDays ?? null
           }
         } catch {}
-        enriched = { wallet: input, domain: shortAddr(input), balance, txCount, walletAgeDays, score, hasDomain, resolvedDomain, domainAgeDays }
+        enriched = { wallet: input, domain: shortAddr(input), balance, walletValueUsd: totalUsd, txCount, walletAgeDays, score, hasDomain, resolvedDomain, domainAgeDays }
       } else {
         const res = await fetch(`/api/lookup?domain=${input}`)
         const json = await res.json()
@@ -619,7 +577,6 @@ export function useSolId() {
     setLoading(false)
   }
 
-  // ── Analyze connected wallet ───────────────────────────────────────────────
   async function analyzeMyWallet() {
     if (!publicKey) return
     const walletAddr = publicKey.toBase58()
@@ -633,6 +590,8 @@ export function useSolId() {
       const connection = await createConnection()
       const balanceLamports = await connection.getBalance(new PublicKey(walletAddr))
       const balance = balanceLamports / LAMPORTS_PER_SOL
+      const heliusRes = await fetch(`/api/helius-balance?wallet=${walletAddr}`)
+      const { totalUsd } = await heliusRes.json()
       const sigs = await connection.getSignaturesForAddress(new PublicKey(walletAddr), { limit: 100 })
       const txCount = sigs.length
       const oldestSig = sigs[sigs.length - 1]
@@ -646,7 +605,7 @@ export function useSolId() {
           hasDomain = true; resolvedDomain = reverseJson.domain; domainAgeDays = reverseJson.domainAgeDays ?? null
         }
       } catch {}
-      const enriched = { wallet: walletAddr, domain: 'My Wallet', balance, txCount, walletAgeDays, score, hasDomain, resolvedDomain, domainAgeDays }
+      const enriched = { wallet: walletAddr, domain: 'My Wallet', balance, walletValueUsd: totalUsd, txCount, walletAgeDays, score, hasDomain, resolvedDomain, domainAgeDays }
       setData(enriched)
       saveToHistory(enriched)
       setIsPro(isProForAddress(walletAddr))
@@ -656,7 +615,6 @@ export function useSolId() {
     setLoading(false)
   }
 
-  // ── Derived state ──────────────────────────────────────────────────────────
   const bestAnalysis = proAnalysis || completeAnalysis || quickAnalysis
 
   const sybil = data ? getSybilRisk({
