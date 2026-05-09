@@ -15,11 +15,17 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "sol.id - SNS Reputation & Sybil Checker",
   description: "On-chain reputation and sybil detection for .sol identities",
-};
+  icons: {
+    icon: '/sol-id-logo.png',
+  },
+}
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <head>
+        <link rel="icon" type="image/png" href="/sol-id-logo.png" />
+      </head>
       <body className="min-h-full flex flex-col">
         <Providers>
           {children}
