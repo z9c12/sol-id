@@ -146,12 +146,79 @@ export default function AnalysisSection({ analysis, pro, dark }) {
       )}
 
       {pro && (
-        <div>
+        <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>🧹 Wash Trading Score</p>
             <Tooltip text={TOOLTIPS.washScore} dark />
           </div>
           <WashBar score={analysis.washScore} />
+        </div>
+      )}
+
+      {pro && analysis.programProfile && (
+        <div style={{ marginTop: 4 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#7F77DD', marginBottom: 10 }}>🔬 Program Interaction Profile</p>
+
+          {/* Malicious program alert */}
+          {analysis.maliciousPrograms?.length > 0 && (
+            <div style={{ marginBottom: 10, padding: '10px 14px', background: 'rgba(239,68,68,0.12)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#ef4444', margin: 0 }}>
+                ☠️ {analysis.maliciousPrograms.length} known malicious program(s) detected
+              </p>
+              {analysis.maliciousPrograms.map((h, i) => (
+                <p key={i} onClick={() => openSolscan(h.txSignature)}
+                  style={{ fontSize: 11, color: '#fca5a5', marginTop: 4, fontFamily: 'monospace', cursor: 'pointer', textDecoration: 'underline' }}>
+                  {h.programId.slice(0, 8)}...{h.programId.slice(-6)} ↗
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* DeFi legitimacy score */}
+          <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <p style={{ fontSize: 12, color: '#888', margin: 0, minWidth: 120 }}>DeFi Legit Score</p>
+            <div style={{ flex: 1, height: 6, background: '#1e1e2e', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${analysis.defiLegitScore}%`, borderRadius: 99, background: analysis.defiLegitScore > 50 ? '#22c55e' : analysis.defiLegitScore > 20 ? '#f59e0b' : '#ef4444', transition: 'width 0.4s' }} />
+            </div>
+            <p style={{ fontSize: 12, fontWeight: 700, color: analysis.defiLegitScore > 50 ? '#22c55e' : analysis.defiLegitScore > 20 ? '#f59e0b' : '#ef4444', margin: 0, minWidth: 36 }}>{analysis.defiLegitScore}%</p>
+          </div>
+
+          {/* Category breakdown */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {[
+              { key: 'dex',     label: 'DEX',      color: '#7F77DD' },
+              { key: 'staking', label: 'Staking',  color: '#22c55e' },
+              { key: 'lending', label: 'Lending',  color: '#06b6d4' },
+              { key: 'nft',     label: 'NFT',      color: '#f59e0b' },
+              { key: 'perps',   label: 'Perps',    color: '#ec4899' },
+              { key: 'infra',   label: 'Infra',    color: '#a78bfa' },
+              { key: 'bridge',  label: 'Bridge',   color: '#34d399' },
+            ].map(({ key, label, color }) => analysis.programProfile[key] > 0 && (
+              <span key={key} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: color + '18', color, fontWeight: 600 }}>
+                {label} ×{analysis.programProfile[key]}
+              </span>
+            ))}
+            {analysis.programProfile.unknown > 0 && (
+              <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#ef4444', fontWeight: 600 }}>
+                Unknown ×{analysis.programProfile.unknown}
+              </span>
+            )}
+          </div>
+
+          {/* Token approvals */}
+          {analysis.tokenApprovals?.length > 0 && (
+            <div style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.07)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.2)' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 4 }}>
+                🔓 {analysis.tokenApprovals.length} token approval(s) — wallet delegated token authority
+              </p>
+              {analysis.tokenApprovals.slice(0, 3).map((a, i) => (
+                <p key={i} onClick={() => openSolscan(a.txSignature)}
+                  style={{ fontSize: 11, color: '#aaa', margin: '2px 0', fontFamily: 'monospace', cursor: 'pointer' }}>
+                  → {a.delegate?.slice(0, 8)}...{a.delegate?.slice(-6)} ↗
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -74,11 +74,25 @@ export function useSolId() {
   const [copied, setCopied] = useState(false)
   const [payLoading, setPayLoading] = useState(false)
   const [payError, setPayError] = useState(null)
+  const [payElapsed, setPayElapsed] = useState(0)
+  const payTimerRef = useRef(null)
   const reportRef = useRef(null)
 
   const [chainStatus, setChainStatus] = useState(null)
   const [chainSig, setChainSig] = useState(null)
   const [tokenData, setTokenData] = useState(null)
+  const [payRestoring, setPayRestoring] = useState(false)
+
+  useEffect(() => {
+    if (payLoading || payRestoring) {
+      setPayElapsed(0)
+      payTimerRef.current = setInterval(() => setPayElapsed(s => s + 1), 1000)
+    } else {
+      clearInterval(payTimerRef.current)
+      setPayElapsed(0)
+    }
+    return () => clearInterval(payTimerRef.current)
+  }, [payLoading, payRestoring])
 
   const proKey = (searchedWallet) => {
     if (!publicKey || !searchedWallet) return null
@@ -181,6 +195,65 @@ export function useSolId() {
     setAnalysisSignature(prev => prev || 'demo')
   }
 
+  const kirapaySessionKey = (walletAddr) =>
+    publicKey ? `kirapay_pending_${publicKey.toBase58()}_${walletAddr}` : null
+
+  const startKirapayPolling = (modalOpenedAt, walletAddr, isRestore = false) => {
+    const POLL_INTERVAL_MS = 3000
+    const MAX_WAIT_MS = 10 * 60 * 1000
+    const deadline = isRestore ? Date.now() + MAX_WAIT_MS : modalOpenedAt + MAX_WAIT_MS
+
+    const poll = async () => {
+      if (Date.now() > deadline) {
+        setPayLoading(false)
+        setPayRestoring(false)
+        setPayError('Payment window expired. If you paid, click "Verify Payment" to check again.')
+        return
+      }
+      try {
+        const verifyRes = await fetch(`/api/kirapay-verify?amount=5&after=${modalOpenedAt}`)
+        const verifyJson = await verifyRes.json()
+        if (verifyJson.verified) {
+          setProForAddress(walletAddr)
+          setPayLoading(false)
+          setPayRestoring(false)
+          setPayError(null)
+          const sk = kirapaySessionKey(walletAddr)
+          if (sk) { try { sessionStorage.removeItem(sk) } catch {} }
+          return
+        }
+      } catch (e) {
+        console.warn('Poll error:', e)
+      }
+      setTimeout(poll, POLL_INTERVAL_MS)
+    }
+
+    setTimeout(poll, isRestore ? 0 : 3000)
+  }
+
+  const restoreProPayment = () => {
+    if (!data?.wallet || !publicKey) return
+    const sk = kirapaySessionKey(data.wallet)
+    if (!sk) return
+    let pending
+    try { pending = JSON.parse(sessionStorage.getItem(sk) || 'null') } catch { return }
+    if (!pending?.modalOpenedAt) return
+    setPayRestoring(true)
+    setPayError(null)
+    startKirapayPolling(pending.modalOpenedAt, data.wallet, true)
+  }
+
+  useEffect(() => {
+    if (!data?.wallet || !publicKey || isPro || payLoading || payRestoring) return
+    const sk = kirapaySessionKey(data.wallet)
+    if (!sk) return
+    let pending
+    try { pending = JSON.parse(sessionStorage.getItem(sk) || 'null') } catch { return }
+    if (!pending?.modalOpenedAt) return
+    setPayRestoring(true)
+    startKirapayPolling(pending.modalOpenedAt, data.wallet, true)
+  }, [data?.wallet, publicKey])
+
   const payForPro = async () => {
     if (!publicKey) return
     if (!data?.wallet) return
@@ -199,7 +272,7 @@ export function useSolId() {
         body: JSON.stringify({
           tokenOut: { chainId: 'sol', address: 'SOL' },
           receiver: '2SN5CQ28hqKaC3xXVU8WgXKKDWygxB1FNMYv9ERGB9cu',
-          originalPrice: 0.05,
+          originalPrice: 5,
           fiatCurrency: 'USD',
           name: 'sol.id Pro — Deep Analysis Unlock',
           customOrderId: `solid-${publicKey.toBase58().slice(0, 8)}-${data.wallet.slice(0, 8)}-${modalOpenedAt}`,
@@ -214,34 +287,13 @@ export function useSolId() {
         throw new Error(`KIRAPAY error: ${JSON.stringify(json)}`)
       }
 
-      window.open(json.data.url, '_blank')
-
-      const MAX_WAIT_MS = 5 * 60 * 1000
-      const POLL_INTERVAL_MS = 3000
-      const deadline = modalOpenedAt + MAX_WAIT_MS
-
-      const poll = async () => {
-        if (Date.now() > deadline) {
-          setPayLoading(false)
-          setPayError('Payment timed out. If you completed payment, refresh and try again.')
-          return
-        }
-        try {
-          const verifyRes = await fetch(`/api/kirapay-verify?amount=5&after=${modalOpenedAt}`)
-          const verifyJson = await verifyRes.json()
-          if (verifyJson.verified) {
-            setProForAddress(data.wallet)
-            setPayLoading(false)
-            setPayError(null)
-            return
-          }
-        } catch (e) {
-          console.warn('Poll error:', e)
-        }
-        setTimeout(poll, POLL_INTERVAL_MS)
+      const sk = kirapaySessionKey(data.wallet)
+      if (sk) {
+        try { sessionStorage.setItem(sk, JSON.stringify({ modalOpenedAt, wallet: data.wallet })) } catch {}
       }
 
-      setTimeout(poll, 15000)
+      window.open(json.data.url, '_blank')
+      startKirapayPolling(modalOpenedAt, data.wallet, false)
 
     } catch (e) {
       console.error('KIRAPAY error:', e.message)
@@ -543,6 +595,9 @@ export function useSolId() {
                 quickFlipCount: msg.quickFlipCount ?? 0,
                 dustTxCount: msg.dustTxCount ?? 0,
                 junkTokenCount: tokenData?.junkTokenCount ?? 0,
+                maliciousProgramCount: msg.maliciousPrograms?.length ?? 0,
+                suspiciousApprovalCount: msg.tokenApprovals?.length ?? 0,
+                defiLegitScore: msg.defiLegitScore ?? null,
               })
               publishToChain(msg, data?.wallet, sybilData.risk)
             } else if (msg.type === 'error') {
@@ -688,6 +743,9 @@ export function useSolId() {
     quickFlipCount: bestAnalysis?.quickFlipCount || 0,
     dustTxCount: bestAnalysis?.dustTxCount || 0,
     junkTokenCount: tokenData?.junkTokenCount || 0,
+    maliciousProgramCount: bestAnalysis?.maliciousPrograms?.length || 0,
+    suspiciousApprovalCount: bestAnalysis?.tokenApprovals?.length || 0,
+    defiLegitScore: bestAnalysis?.defiLegitScore ?? null,
   }) : null
 
   const displayScore = data && sybil ? applyRiskCap(data.score, sybil.risk) : data?.score ?? null
@@ -706,7 +764,7 @@ export function useSolId() {
     proAnalysis, proAnalyzing, proProgress, proETA,
     history,
     copied, setCopied,
-    payLoading, payError,
+    payLoading, payError, payElapsed, payRestoring, restoreProPayment,
     reportRef,
     chainStatus, chainSig,
     lookup,

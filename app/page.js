@@ -32,7 +32,7 @@ export default function Home() {
     proAnalysis, proAnalyzing, proProgress, proETA,
     history,
     copied, setCopied,
-    payLoading, payError,
+    payLoading, payError, payElapsed, payRestoring, restoreProPayment,
     reportRef,
     chainStatus, chainSig,
     lookup,
@@ -388,14 +388,14 @@ export default function Home() {
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={payForPro}
-                        disabled={payLoading || !connected}
-                        style={{ flex: 2, padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #3C3489, #6C5CE7)', color: 'white', fontWeight: 700, fontSize: 15, opacity: (payLoading || !connected) ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none' }}
+                        disabled={payLoading || payRestoring || !connected}
+                        style={{ flex: 2, padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, #3C3489, #6C5CE7)', color: 'white', fontWeight: 700, fontSize: 15, opacity: (payLoading || payRestoring || !connected) ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', cursor: (payLoading || payRestoring || !connected) ? 'not-allowed' : 'pointer' }}
                       >
-                        {payLoading ? <><Spinner size={16} color="#fff" /> Processing...</> : <>Unlock Pro — $5</>}
+                        {(payLoading || payRestoring) ? <><Spinner size={16} color="#fff" /> {payRestoring ? 'Verifying payment…' : 'Awaiting payment…'}{payElapsed > 0 ? ` (${payElapsed < 60 ? `${payElapsed}s` : `${Math.floor(payElapsed / 60)}m ${payElapsed % 60}s`})` : ''}</> : <>Unlock Pro — $5</>}
                       </button>
                       <button
                         onClick={unlockPro}
-                        style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '2px dashed #10B981', background: 'rgba(16,185,129,0.06)', color: '#10B981', fontWeight: 600, fontSize: 13 }}
+                        style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '2px dashed #10B981', background: 'rgba(16,185,129,0.06)', color: '#10B981', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
                       >
                         Demo Unlock
                       </button>
@@ -412,6 +412,11 @@ export default function Home() {
                     {payError && (
                       <div style={{ marginTop: 12, padding: 14, background: 'rgba(239,68,68,0.08)', borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 14 }}>
                         ⚠️ {payError}
+                        {connected && (
+                          <button onClick={restoreProPayment} style={{ marginTop: 8, display: 'block', width: '100%', padding: '8px', borderRadius: 8, background: 'rgba(127,119,221,0.15)', color: '#7F77DD', border: '1px solid rgba(127,119,221,0.3)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                            Verify Payment
+                          </button>
+                        )}
                       </div>
                     )}
                   </>
