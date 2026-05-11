@@ -30,7 +30,7 @@ export default function AnalysisSection({ analysis, pro, dark }) {
         }}>alchemy rpc</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
         <div style={{
           padding: 14, borderRadius: 10, textAlign: 'center',
           background: analysis.hasCircularActivity ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.07)',
@@ -56,6 +56,35 @@ export default function AnalysisSection({ analysis, pro, dark }) {
             <Tooltip text={TOOLTIPS.roundAmounts} dark />
           </div>
           <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Round-amount txs</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+        <div style={{
+          padding: 14, borderRadius: 10, textAlign: 'center',
+          background: analysis.quickFlipCount >= 3 ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.07)',
+          border: `1px solid ${analysis.quickFlipCount >= 3 ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.15)'}`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <p style={{ fontSize: 20, fontWeight: 800, color: analysis.quickFlipCount >= 3 ? '#ef4444' : '#22c55e', margin: 0 }}>
+              {analysis.quickFlipCount ?? 0}
+            </p>
+            <Tooltip text={TOOLTIPS.quickFlip} dark />
+          </div>
+          <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Quick in-out (&lt;1h)</p>
+        </div>
+        <div style={{
+          padding: 14, borderRadius: 10, textAlign: 'center',
+          background: analysis.dustTxCount >= 5 ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.07)',
+          border: `1px solid ${analysis.dustTxCount >= 5 ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.15)'}`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <p style={{ fontSize: 20, fontWeight: 800, color: analysis.dustTxCount >= 5 ? '#f59e0b' : '#22c55e', margin: 0 }}>
+              {analysis.dustTxCount ?? 0}
+            </p>
+            <Tooltip text={TOOLTIPS.dustTxCount} dark />
+          </div>
+          <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Token airdrops</p>
         </div>
       </div>
 

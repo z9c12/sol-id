@@ -21,9 +21,10 @@ sol.id is an identity verification and sybil-detection layer for Solana. It serv
 - 📊 Reputation score (0–100) based on on-chain activity
 - 💰 Total wallet value in USD — SOL + all SPL tokens via Helius DAS
 - 🚨 Sybil detection — circular transfers, round-amount flagging, wash trading score
+- 🪤 Dusting scan — detects dust airdrops and wallet-drainer token campaigns
 - 🤖 Agent Identity API — machine-readable trust verdict for autonomous agents
 - 📤 On-chain verdict publishing via Solana Memo program
-- 📄 PDF report export (Pro)
+- 📄 PDF report export (Pro) — includes full token scan section
 - ⚖️ Side-by-side wallet comparison
 - 🔗 Shareable report links
 - 💳 Pro unlock via KIRAPAY — pay with any token from any chain
@@ -38,6 +39,14 @@ A number from **0 to 100** computed from three on-chain signals:
 ```
 score = txScore + balScore + ageScore
 ```
+
+The raw score is then capped based on sybil risk so a confirmed drainer wallet cannot score high just from transaction volume:
+
+| Sybil Risk | Score Cap |
+|---|---|
+| High | 30 |
+| Medium | 60 |
+| Low | None |
 
 ### Transaction Score (max 50 pts)
 
@@ -78,6 +87,31 @@ ageScore = min(20, round((walletAgeDays / 365) × 20))
 - Risk ≥ 50 → 🚨 **High Risk**
 - Risk ≥ 20 → ⚠️ **Medium Risk**
 - Risk < 20 → ✅ **Low Risk**
+
+---
+
+## Token Portfolio Scan (Dusting / Drainer Detection)
+
+Every wallet lookup runs a scan of all SPL tokens via Helius DAS. Tokens with a total USD value below **$0.01** are classified as **junk tokens** — these are almost never purchased intentionally and are overwhelmingly:
+
+- Dust airdropped by drainer campaigns to track or phish the wallet
+- Worthless meme coins with no market or liquidity
+- Scam "claim" tokens designed to trick users into malicious approvals
+
+| Junk Token Count | Signal | Risk |
+|---|---|---|
+| 1–3 | Minor dust | Low-warn |
+| 4–10 | Spam risk | Medium |
+| 11–20 | Elevated drainer risk | Medium |
+| 20+ | Active dusting / drainer target | High |
+
+Additionally, if over 60% of all tokens are junk and the wallet holds more than 30 tokens total, a **"Portfolio dominated by junk tokens"** flag is added.
+
+The scan output includes:
+- Total token count
+- Junk/dust token count
+- Risk label (Clean / Minor Dust / Token Spam Risk / Drainer Target)
+- List of up to 20 suspicious tokens with name, symbol, and Solscan link
 
 ---
 
@@ -128,6 +162,8 @@ Alchemy is used separately for raw SOL balance and transaction data, which feed 
   "walletAgeDays": 290,
   "txCount": 42,
   "balance": "0.292",
+  "tokenCount": 12,
+  "junkTokenCount": 1,
   "verifiedAt": 1778180369,
   "apiVersion": 1
 }

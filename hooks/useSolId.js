@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import jsPDF from 'jspdf';
-import { isValidSolanaAddress, calcScore, getSybilRisk, shortAddr, walletAge, formatETA, TOOLTIPS, confirmTransactionPolling } from '@/lib/wallet-utils'
+import { isValidSolanaAddress, calcScore, applyRiskCap, getSybilRisk, getTokenRisk, shortAddr, walletAge, formatETA, TOOLTIPS, confirmTransactionPolling } from '@/lib/wallet-utils'
 
 const RPC_URL = `${process.env.NEXT_PUBLIC_APP_URL}/api/rpc`
 
@@ -26,6 +26,18 @@ async function createConnection() {
     }
   }
   throw new Error('All RPC endpoints failed')
+}
+
+// Single call, max Solana limit of 1000 — covers most wallets exactly.
+// For wallets with 1000+ txs the age is a lower-bound (age of the 1000th most
+// recent tx) and txCount shows 1000, but this costs only 1 RPC credit.
+async function fetchWalletStats(connection, pubkey) {
+  const sigs = await connection.getSignaturesForAddress(pubkey, { limit: 1000 })
+  const oldest = sigs[sigs.length - 1]
+  const walletAgeDays = oldest?.blockTime
+    ? Math.floor((Date.now() / 1000 - oldest.blockTime) / 86400)
+    : 0
+  return { txCount: sigs.length, walletAgeDays }
 }
 
 export function useSolId() {
@@ -66,6 +78,7 @@ export function useSolId() {
 
   const [chainStatus, setChainStatus] = useState(null)
   const [chainSig, setChainSig] = useState(null)
+  const [tokenData, setTokenData] = useState(null)
 
   const proKey = (searchedWallet) => {
     if (!publicKey || !searchedWallet) return null
@@ -186,7 +199,7 @@ export function useSolId() {
         body: JSON.stringify({
           tokenOut: { chainId: 'sol', address: 'SOL' },
           receiver: '2SN5CQ28hqKaC3xXVU8WgXKKDWygxB1FNMYv9ERGB9cu',
-          originalPrice: 5,
+          originalPrice: 0.05,
           fiatCurrency: 'USD',
           name: 'sol.id Pro — Deep Analysis Unlock',
           customOrderId: `solid-${publicKey.toBase58().slice(0, 8)}-${data.wallet.slice(0, 8)}-${modalOpenedAt}`,
@@ -283,9 +296,9 @@ export function useSolId() {
     y += 28;
 
     const bestAnal = proAnalysis || completeAnalysis || quickAnalysis;
-    const score = data.score ?? bestAnal?.score ?? 71;
+    const score = displayScore ?? data.score ?? bestAnal?.score ?? 71;
     const riskLevel = bestAnal
-      ? getSybilRisk({ balance: data.balance ?? 0, txCount: data.txCount ?? 0, circularCount: bestAnal?.circular?.length ?? 0, roundCount: bestAnal?.roundAmountCount ?? 0, washScore: bestAnal?.washScore ?? 0 }).risk
+      ? getSybilRisk({ balance: data.balance ?? 0, txCount: data.txCount ?? 0, circularCount: bestAnal?.circular?.length ?? 0, roundCount: bestAnal?.roundAmountCount ?? 0, washScore: bestAnal?.washScore ?? 0, quickFlipCount: bestAnal?.quickFlipCount ?? 0, dustTxCount: bestAnal?.dustTxCount ?? 0, junkTokenCount: tokenData?.junkTokenCount ?? 0 }).risk
       : score >= 70 ? 'low' : score >= 50 ? 'medium' : 'high';
     const risk = riskLevel.toLowerCase();
     const badgeColor = risk === 'low' ? [16, 185, 129] : risk === 'medium' ? [234, 179, 8] : [239, 68, 68];
@@ -399,6 +412,37 @@ export function useSolId() {
       });
     }
 
+    // Token Portfolio Scan section
+    if (tokenData) {
+      checkPage(50)
+      const tr = getTokenRisk({ tokenCount: tokenData.tokenCount, junkTokenCount: tokenData.junkTokenCount })
+      const trColor = tr.risk === 'high' ? [239, 68, 68] : tr.risk === 'medium' ? [245, 158, 11] : [34, 197, 94]
+      pdf.setFontSize(11); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(0, 0, 0);
+      pdf.text('Token Portfolio Scan', 22, y); y += 8
+      pdf.setFillColor(...trColor); pdf.roundedRect(22, y, 80, 14, 3, 3, 'F')
+      pdf.setTextColor(255, 255, 255); pdf.setFontSize(10); pdf.setFont('helvetica', 'bold')
+      pdf.text(`${tr.emoji} ${tr.label}`, 28, y + 9); y += 20
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(80, 80, 80)
+      pdf.text(`Total tokens: ${tokenData.tokenCount}   Junk/dust tokens: ${tokenData.junkTokenCount}`, 22, y); y += 8
+      pdf.text(tr.verdict, 22, y); y += 10
+      if (tokenData.suspiciousTokens?.length > 0) {
+        pdf.setFontSize(9); pdf.setFont('helvetica', 'bold'); pdf.setTextColor(239, 68, 68)
+        pdf.text('Suspicious Tokens (zero-value / dust):', 22, y); y += 6
+        pdf.setFont('helvetica', 'normal'); pdf.setTextColor(80, 80, 80)
+        tokenData.suspiciousTokens.slice(0, 10).forEach(t => {
+          checkPage(7)
+          const line = `• [${t.symbol}] ${t.name.slice(0, 40)} — $${t.value.toFixed(4)}`
+          pdf.text(line, 22, y)
+          if (t.mint) pdf.link(22, y - 4, 200, 6, { url: `https://solscan.io/token/${t.mint}` })
+          y += 6
+        })
+        if (tokenData.junkTokenCount > 10) {
+          pdf.text(`+ ${tokenData.junkTokenCount - 10} more junk tokens not shown`, 22, y); y += 8
+        }
+      }
+      y += 6
+    }
+
     const totalPages = pdf.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(160, 160, 160);
@@ -495,7 +539,10 @@ export function useSolId() {
                 balance: data?.balance ?? 0, txCount: data?.txCount ?? 0,
                 circularCount: msg.circular?.length ?? 0,
                 roundCount: msg.roundAmountCount ?? 0,
-                washScore: msg.washScore ?? 0
+                washScore: msg.washScore ?? 0,
+                quickFlipCount: msg.quickFlipCount ?? 0,
+                dustTxCount: msg.dustTxCount ?? 0,
+                junkTokenCount: tokenData?.junkTokenCount ?? 0,
               })
               publishToChain(msg, data?.wallet, sybilData.risk)
             } else if (msg.type === 'error') {
@@ -533,6 +580,7 @@ export function useSolId() {
     if (!input) return
     setLoading(true); setError(null); setData(null)
     setIsPro(false)
+    setTokenData(null)
     setQuickAnalysis(null); setCompleteAnalysis(null); setProAnalysis(null)
     setQuickProgress({ current: 0, total: 0 }); setCompleteProgress({ current: 0, total: 0 }); setProProgress({ current: 0, total: 0 })
     setChainStatus(null); setChainSig(null)
@@ -543,14 +591,15 @@ export function useSolId() {
         const { Connection, LAMPORTS_PER_SOL, PublicKey } = await import('@solana/web3.js')
         const connection = await createConnection()
         const pubkey = new PublicKey(input)
-        const balanceLamports = await connection.getBalance(pubkey)
+        const [balanceLamports, heliusRes, { txCount, walletAgeDays }] = await Promise.all([
+          connection.getBalance(pubkey),
+          fetch(`/api/helius-balance?wallet=${input}`),
+          fetchWalletStats(connection, pubkey),
+        ])
         const balance = balanceLamports / LAMPORTS_PER_SOL
-        const heliusRes = await fetch(`/api/helius-balance?wallet=${input}`)
-        const { totalUsd } = await heliusRes.json()
-        const sigs = await connection.getSignaturesForAddress(pubkey, { limit: 100 })
-        const txCount = sigs.length
-        const oldestSig = sigs[sigs.length - 1]
-        const walletAgeDays = oldestSig?.blockTime ? Math.floor((Date.now() / 1000 - oldestSig.blockTime) / 86400) : 0
+        const heliusJson = await heliusRes.json()
+        const { totalUsd, tokenCount = 0, junkTokenCount = 0, suspiciousTokens = [] } = heliusJson
+        setTokenData({ tokenCount, junkTokenCount, suspiciousTokens })
         const score = calcScore({ balance, txCount, walletAgeDays })
         let hasDomain = false, resolvedDomain = null, domainAgeDays = null
         try {
@@ -566,6 +615,12 @@ export function useSolId() {
         const json = await res.json()
         if (json.error) throw new Error()
         const score = calcScore({ balance: json.balance, txCount: json.txCount, walletAgeDays: json.walletAgeDays || 0 })
+        if (json.wallet) {
+          const heliusRes = await fetch(`/api/helius-balance?wallet=${json.wallet}`)
+          const heliusJson = await heliusRes.json()
+          const { tokenCount = 0, junkTokenCount = 0, suspiciousTokens = [] } = heliusJson
+          setTokenData({ tokenCount, junkTokenCount, suspiciousTokens })
+        }
         enriched = { ...json, score, domain: input, hasDomain: true, resolvedDomain: input, domainAgeDays: json.domainAgeDays ?? null }
       }
       setData(enriched)
@@ -582,20 +637,23 @@ export function useSolId() {
     const walletAddr = publicKey.toBase58()
     setLoading(true); setError(null)
     setIsPro(false)
+    setTokenData(null)
     setQuickAnalysis(null); setCompleteAnalysis(null); setProAnalysis(null)
     setAnalysisSignature(null)
     setChainStatus(null); setChainSig(null)
     try {
       const { Connection, LAMPORTS_PER_SOL, PublicKey } = await import('@solana/web3.js')
       const connection = await createConnection()
-      const balanceLamports = await connection.getBalance(new PublicKey(walletAddr))
+      const pubkeyObj = new PublicKey(walletAddr)
+      const [balanceLamports, heliusRes, { txCount, walletAgeDays }] = await Promise.all([
+        connection.getBalance(pubkeyObj),
+        fetch(`/api/helius-balance?wallet=${walletAddr}`),
+        fetchWalletStats(connection, pubkeyObj),
+      ])
       const balance = balanceLamports / LAMPORTS_PER_SOL
-      const heliusRes = await fetch(`/api/helius-balance?wallet=${walletAddr}`)
-      const { totalUsd } = await heliusRes.json()
-      const sigs = await connection.getSignaturesForAddress(new PublicKey(walletAddr), { limit: 100 })
-      const txCount = sigs.length
-      const oldestSig = sigs[sigs.length - 1]
-      const walletAgeDays = oldestSig?.blockTime ? Math.floor((Date.now() / 1000 - oldestSig.blockTime) / 86400) : 0
+      const heliusJson = await heliusRes.json()
+      const { totalUsd, tokenCount = 0, junkTokenCount = 0, suspiciousTokens = [] } = heliusJson
+      setTokenData({ tokenCount, junkTokenCount, suspiciousTokens })
       const score = calcScore({ balance, txCount, walletAgeDays })
       let hasDomain = false, resolvedDomain = null, domainAgeDays = null
       try {
@@ -617,17 +675,29 @@ export function useSolId() {
 
   const bestAnalysis = proAnalysis || completeAnalysis || quickAnalysis
 
+  const tokenRisk = tokenData ? getTokenRisk({
+    tokenCount: tokenData.tokenCount,
+    junkTokenCount: tokenData.junkTokenCount,
+  }) : null
+
   const sybil = data ? getSybilRisk({
     balance: data.balance, txCount: data.txCount,
     circularCount: bestAnalysis?.circular?.length || 0,
     roundCount: bestAnalysis?.roundAmountCount || 0,
-    washScore: bestAnalysis?.washScore || 0
+    washScore: bestAnalysis?.washScore || 0,
+    quickFlipCount: bestAnalysis?.quickFlipCount || 0,
+    dustTxCount: bestAnalysis?.dustTxCount || 0,
+    junkTokenCount: tokenData?.junkTokenCount || 0,
   }) : null
+
+  const displayScore = data && sybil ? applyRiskCap(data.score, sybil.risk) : data?.score ?? null
 
   return {
     dark, setDark,
     domain, setDomain,
     data, loading, error,
+    displayScore,
+    tokenData, tokenRisk,
     showCompare, setShowCompare,
     analysisSignature,
     quickAnalysis, quickAnalyzing, quickProgress, quickETA,

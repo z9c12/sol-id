@@ -107,6 +107,13 @@ export async function GET(request) {
         const fundingTxMap = {}
         const roundAmounts = []
 
+        // Velocity tracking — blockTimes of incoming/outgoing SOL transfers
+        const inTimestamps = []
+        const outTimestamps = []
+
+        // Dust tracking — unique token mints airdropped to this wallet
+        const dustTokenMints = new Set()
+
         for (let i = 0; i < results.length; i++) {
           const sig = results[i]
           try {
@@ -130,12 +137,14 @@ export async function GET(request) {
 
                   if (source === wallet) {
                     counterparts[other].sent += sol
+                    if (sig.blockTime) outTimestamps.push(sig.blockTime)
                   } else {
                     // Incoming — track as funding source
                     counterparts[other].received += sol
                     fundingSources[other] = (fundingSources[other] || 0) + sol
                     if (!fundingTxMap[other]) fundingTxMap[other] = []
                     if (fundingTxMap[other].length < 3) fundingTxMap[other].push(sig.signature)
+                    if (sig.blockTime) inTimestamps.push(sig.blockTime)
                   }
                   counterparts[other].count++
 
@@ -153,12 +162,38 @@ export async function GET(request) {
                 }
               }
             }
+
+            // SPL token dust detection — new token mints that appear in this wallet
+            // after the tx but weren't there before = airdropped token (potential dust)
+            const preMintSet = new Set(
+              (tx.meta.preTokenBalances || [])
+                .filter(b => b.owner === wallet)
+                .map(b => b.mint)
+            )
+            for (const post of (tx.meta.postTokenBalances || [])) {
+              if (post.owner === wallet && !preMintSet.has(post.mint)) {
+                dustTokenMints.add(post.mint)
+              }
+            }
+
           } catch (e) {
             console.error(`[analyze] Error fetching tx ${sig.signature}:`, e.message)
             send({ type: 'progress', current: i + 1, total })
             continue
           }
         }
+
+        // Quick in-out (velocity) — count incoming SOL transfers that were followed
+        // by an outgoing transfer within 1 hour; scripted drainers do this instantly,
+        // bots do it within minutes; organic users almost never do it within an hour
+        let quickFlipCount = 0
+        for (const inT of inTimestamps) {
+          if (outTimestamps.some(outT => outT >= inT && outT - inT <= 3600)) {
+            quickFlipCount++
+          }
+        }
+
+        const dustTxCount = dustTokenMints.size
 
         // ── Circular trading detection ────────────────────────────────────────
         // A wallet that both sent AND received SOL to/from the same address
@@ -205,8 +240,9 @@ export async function GET(request) {
           txAnalyzed: total,
           hasCircularActivity: circular.length > 0,
           roundAmountCount: roundAmounts.length,
+          quickFlipCount,
+          dustTxCount,
           pro,
-          // Let the client know which RPC tier was actually used
           rpcUsed: PRIMARY_RPC ? 'alchemy' : 'fallback'
         })
 

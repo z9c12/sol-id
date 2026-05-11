@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { isValidSolanaAddress, calcScore, getSybilRisk, walletAge } from '@/lib/wallet-utils';
+import { isValidSolanaAddress, calcScore, applyRiskCap, getSybilRisk, walletAge } from '@/lib/wallet-utils';
 
 export default function ComparePanel({ dark }) {
   const [walletA, setWalletA] = useState('');
@@ -80,8 +80,9 @@ export default function ComparePanel({ dark }) {
   };
 
   // Winner detection
-  const scoreA = resultA?.score ?? -1;
-  const scoreB = resultB?.score ?? -1;
+  const getSybilRisk_ = (r) => r ? getSybilRisk({ balance: r.balance ?? 0, txCount: r.txCount ?? 0 }) : null
+  const scoreA = resultA ? applyRiskCap(resultA.score, getSybilRisk_(resultA)?.risk) : -1
+  const scoreB = resultB ? applyRiskCap(resultB.score, getSybilRisk_(resultB)?.risk) : -1
   const hasWinner = resultA && resultB && scoreA !== scoreB;
   const aIsWinner = hasWinner && scoreA > scoreB;
   const bIsWinner = hasWinner && scoreB > scoreA;
@@ -154,7 +155,7 @@ export default function ComparePanel({ dark }) {
                 {resultA.domain || resultA.wallet}
               </p>
               <p style={{ fontSize: 28, fontWeight: 800, color: '#7F77DD', marginTop: 4 }}>
-                {resultA.score}
+                {scoreA}
               </p>
               <p style={{ fontSize: 12, color: labelColor, marginBottom: 12 }}>Reputation Score</p>
 
@@ -212,7 +213,7 @@ export default function ComparePanel({ dark }) {
                 {resultB.domain || resultB.wallet}
               </p>
               <p style={{ fontSize: 28, fontWeight: 800, color: '#7F77DD', marginTop: 4 }}>
-                {resultB.score}
+                {scoreB}
               </p>
               <p style={{ fontSize: 12, color: labelColor, marginBottom: 12 }}>Reputation Score</p>
 

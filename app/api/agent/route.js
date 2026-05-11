@@ -39,11 +39,13 @@ function calcScore({ balance, txCount, walletAgeDays = 0 }) {
   return Math.min(100, txScore + balScore + ageScore)
 }
 
-// Same risk thresholds as getSybilRisk in lib/wallet-utils.js
-function getRisk({ balance, txCount }) {
+// Mirrors getSybilRisk in lib/wallet-utils.js — keep thresholds in sync
+function getRisk({ balance, txCount, junkTokenCount = 0 }) {
   let riskScore = 0
-  if (txCount < 10)  riskScore += 30
-  if (balance < 0.05) riskScore += 20
+  if (txCount < 10)       riskScore += 30
+  if (balance < 0.05)     riskScore += 20
+  if (junkTokenCount > 20) riskScore += 35
+  else if (junkTokenCount > 10) riskScore += 15
   if (riskScore >= 50) return 'high'
   if (riskScore >= 20) return 'medium'
   return 'low'
@@ -63,10 +65,20 @@ export async function GET(request) {
     const resolvedWallet = domain ? await resolveWallet(domain) : wallet
     const pubkey = new PublicKey(resolvedWallet)
 
-    // Fetch balance + sigs in parallel
-    const [balanceLamports, sigs] = await Promise.all([
+    // Fetch balance, sigs, and token portfolio in parallel
+    const heliusUrl = process.env.HELIUS_RPC_URL
+    const [balanceLamports, sigs, heliusData] = await Promise.all([
       connection.getBalance(pubkey),
-      connection.getSignaturesForAddress(pubkey, { limit: 100 })
+      connection.getSignaturesForAddress(pubkey, { limit: 100 }),
+      heliusUrl ? fetch(heliusUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getAssetsByOwner',
+          params: { ownerAddress: resolvedWallet, page: 1, limit: 1000, displayOptions: { showFungible: true } },
+        }),
+      }).then(r => r.json()).catch(() => null) : Promise.resolve(null),
     ])
 
     const balance = balanceLamports / LAMPORTS_PER_SOL
@@ -76,19 +88,26 @@ export async function GET(request) {
       ? Math.floor((Date.now() / 1000 - oldestSig.blockTime) / 86400)
       : 0
 
+    const tokens = (heliusData?.result?.items ?? []).filter(
+      a => a.interface === 'FungibleToken' || a.interface === 'FungibleAsset'
+    )
+    const junkTokenCount = tokens.filter(t => (t.token_info?.price_info?.total_price ?? 0) < 0.01).length
+
     const reputationScore = calcScore({ balance, txCount, walletAgeDays })
-    const risk = getRisk({ balance, txCount })
+    const risk = getRisk({ balance, txCount, junkTokenCount })
     const trusted = risk === 'low'
 
     return NextResponse.json({
       wallet: resolvedWallet,
       domain: domain || null,
       trusted,
-      risk,                           // 'low' | 'medium' | 'high'
-      reputationScore,                // 0-100, matches main UI score
+      risk,
+      reputationScore,
       walletAgeDays,
       txCount,
       balance: balance.toFixed(3),
+      tokenCount: tokens.length,
+      junkTokenCount,
       verifiedAt: Math.floor(Date.now() / 1000),
       apiVersion: 1,
     })

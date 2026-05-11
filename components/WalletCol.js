@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { getSybilRisk, shortAddr, walletAge, TOOLTIPS } from '@/lib/wallet-utils'
+import { getSybilRisk, applyRiskCap, shortAddr, walletAge, TOOLTIPS } from '@/lib/wallet-utils'
 import { Tooltip, Spinner } from './ui'
 
 export default function WalletCol({ dark, side, input, onInputChange, onFetch, loading, error, data }) {
@@ -12,6 +12,7 @@ export default function WalletCol({ dark, side, input, onInputChange, onFetch, l
   const inputBg = dark ? '#13131f' : '#fff'
 
   const sybil = data ? getSybilRisk({ balance: data.balance, txCount: data.txCount }) : null
+  const displayScore = data && sybil ? applyRiskCap(data.score, sybil.risk) : data?.score ?? null
 
   const handleKey = (e) => {
     if (e.key === 'Enter') onFetch()
@@ -54,7 +55,7 @@ export default function WalletCol({ dark, side, input, onInputChange, onFetch, l
           </div>
           <div style={{ borderTop: `1px solid ${border}`, paddingTop: 10 }}>
             {[
-              { label: 'Score', value: data.score, tip: TOOLTIPS.score },
+              { label: 'Score', value: displayScore, tip: TOOLTIPS.score },
               { label: 'SOL Balance', value: data.balance?.toFixed(3), tip: TOOLTIPS.balance },
               { label: 'Transactions', value: data.txCount, tip: TOOLTIPS.txCount },
               { label: 'Wallet Age', value: walletAge(data.walletAgeDays), tip: TOOLTIPS.walletAge },

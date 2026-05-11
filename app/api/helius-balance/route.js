@@ -40,7 +40,21 @@ export async function GET(request) {
 
     const totalUsd = parseFloat((solUsd + tokensUsd).toFixed(2));
 
-    return NextResponse.json({ totalUsd });
+    // Dust / drainer scan — tokens worth < $0.01 are almost certainly spam airdrops or drainer bait
+    const junkTokens = tokens.filter(t => (t.token_info?.price_info?.total_price ?? 0) < 0.01)
+    const suspiciousTokens = junkTokens.slice(0, 20).map(t => ({
+      symbol: t.token_info?.symbol || t.content?.metadata?.symbol || '?',
+      name: t.content?.metadata?.name || 'Unknown Token',
+      mint: t.id || '',
+      value: parseFloat((t.token_info?.price_info?.total_price ?? 0).toFixed(6)),
+    }))
+
+    return NextResponse.json({
+      totalUsd,
+      tokenCount: tokens.length,
+      junkTokenCount: junkTokens.length,
+      suspiciousTokens,
+    });
   } catch (err) {
     console.error('Helius balance error:', err);
     return NextResponse.json({ error: 'Failed to fetch balance' }, { status: 500 });

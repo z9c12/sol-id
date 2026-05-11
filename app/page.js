@@ -47,6 +47,8 @@ export default function Home() {
     runProAnalysis,
     bestAnalysis,
     sybil,
+    displayScore,
+    tokenData, tokenRisk,
     formatETA,
     walletAge,
     TOOLTIPS,
@@ -186,22 +188,44 @@ export default function Home() {
 
               <VerdictBanner sybil={sybil} />
 
-              <div style={{ marginBottom: 20, padding: '14px 16px', background: dark ? '#0d1f17' : '#f0fdf4', borderRadius: 12, border: `1px solid ${dark ? '#166534' : '#bbf7d0'}` }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#10B981', marginBottom: 4 }}>🤖 Agent Identity Verdict</p>
-                <p style={{ fontSize: 12, color: dark ? '#86efac' : '#166534', lineHeight: 1.6 }}>
-                  {sybil.risk === 'low'
-                    ? '✅ Safe for autonomous agent interaction. Verdict is published on-chain and verifiable by any agent or protocol.'
-                    : sybil.risk === 'medium'
-                      ? '⚠️ Moderate risk detected. Agent interactions should proceed with caution.'
-                      : '❌ High sybil risk. Not recommended for autonomous agent trust.'
-                  }
-                </p>
-                <p style={{ fontSize: 11, color: subColor, marginTop: 8, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                  🔗 /api/agent?{isValidSolanaAddress(data?.domain) || data?.domain === 'My Wallet'
-                    ? `wallet=${data?.wallet}`
-                    : `domain=${data?.domain}`}
-                </p>
-              </div>
+              {(() => {
+                const agentColor = sybil.risk === 'low' ? '#10B981' : sybil.risk === 'medium' ? '#f59e0b' : '#ef4444'
+                const agentBg = sybil.risk === 'low'
+                  ? (dark ? '#0d1f17' : '#f0fdf4')
+                  : sybil.risk === 'medium'
+                    ? (dark ? '#1f1700' : '#fffbeb')
+                    : (dark ? '#1f0707' : '#fef2f2')
+                const agentBorder = sybil.risk === 'low'
+                  ? (dark ? '#166534' : '#bbf7d0')
+                  : sybil.risk === 'medium'
+                    ? (dark ? '#78350f' : '#fde68a')
+                    : (dark ? '#7f1d1d' : '#fecaca')
+                const agentTextColor = sybil.risk === 'low'
+                  ? (dark ? '#86efac' : '#166534')
+                  : sybil.risk === 'medium'
+                    ? (dark ? '#fcd34d' : '#92400e')
+                    : (dark ? '#fca5a5' : '#991b1b')
+                return (
+                  <div style={{ marginBottom: 20, padding: '14px 16px', background: agentBg, borderRadius: 12, border: `1px solid ${agentBorder}` }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: agentColor, marginBottom: 4 }}>🤖 Agent Identity Verdict</p>
+                    <p style={{ fontSize: 12, color: agentTextColor, lineHeight: 1.6 }}>
+                      {sybil.risk === 'low'
+                        ? '✅ Safe for autonomous agent interaction. Verdict is published on-chain and verifiable by any agent or protocol.'
+                        : sybil.risk === 'medium'
+                          ? '⚠️ Moderate risk detected. Agent interactions should proceed with caution.'
+                          : '❌ High sybil risk. Not recommended for autonomous agent trust.'
+                      }
+                    </p>
+                    <a
+                      href={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/agent?${data?.hasDomain ? `domain=${data?.resolvedDomain}` : `wallet=${data?.wallet}`}`}
+                      target="_blank" rel="noreferrer"
+                      style={{ fontSize: 11, color: agentColor, marginTop: 8, fontFamily: 'monospace', wordBreak: 'break-all', display: 'block', textDecoration: 'underline', opacity: 0.8 }}
+                    >
+                      🔗 /api/agent?{data?.hasDomain ? `domain=${data?.resolvedDomain}` : `wallet=${data?.wallet}`} ↗
+                    </a>
+                  </div>
+                )
+              })()}
 
               <div style={{ marginBottom: 20 }}>
                 {chainStatus === 'done' ? (
@@ -218,7 +242,7 @@ export default function Home() {
               </div>
 
               <div style={{ marginBottom: 24 }}>
-                <ScoreRing score={data.score} />
+                <ScoreRing score={displayScore} />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 8 }}>
                   <p style={{ textAlign: 'center', fontSize: 12, color: subColor }}>Reputation Score</p>
                   <Tooltip text={TOOLTIPS.score} dark={dark} />
@@ -261,6 +285,59 @@ export default function Home() {
                   <p style={{ fontSize: 16, fontWeight: 800, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace" }}>{walletAge(data.walletAgeDays)}</p>
                 </div>
               </div>
+
+              {tokenRisk && (
+                <div style={{ marginBottom: 24, padding: 16, borderRadius: 14, background: tokenRisk.bg, border: `1px solid ${tokenRisk.border}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: tokenRisk.color, margin: 0 }}>
+                      {tokenRisk.emoji} Token Portfolio Scan
+                    </p>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: tokenRisk.color + '22', color: tokenRisk.color }}>
+                      {tokenRisk.label}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                    <div style={{ background: dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                      <p style={{ fontSize: 18, fontWeight: 800, color: dark ? '#fff' : '#111', margin: 0, fontFamily: "'Space Mono', monospace" }}>{tokenData.tokenCount}</p>
+                      <p style={{ fontSize: 10, color: subColor, marginTop: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Total Tokens</p>
+                    </div>
+                    <div style={{ background: tokenData.junkTokenCount > 20 ? 'rgba(239,68,68,0.1)' : tokenData.junkTokenCount > 3 ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.07)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                      <p style={{ fontSize: 18, fontWeight: 800, color: tokenData.junkTokenCount > 20 ? '#ef4444' : tokenData.junkTokenCount > 3 ? '#f59e0b' : '#22c55e', margin: 0, fontFamily: "'Space Mono', monospace" }}>{tokenData.junkTokenCount}</p>
+                      <p style={{ fontSize: 10, color: subColor, marginTop: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Dust / Junk</p>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: 12, color: dark ? '#aaa' : '#555', lineHeight: 1.5, marginBottom: tokenData.suspiciousTokens?.length > 0 ? 10 : 0 }}>
+                    {tokenRisk.verdict}
+                  </p>
+
+                  {tokenData.suspiciousTokens?.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 11, color: subColor, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Suspicious Tokens</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {tokenData.suspiciousTokens.slice(0, 8).map((t, i) => (
+                          <div key={i}
+                            onClick={() => t.mint && window.open(`https://solscan.io/token/${t.mint}`, '_blank')}
+                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: dark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.04)', borderRadius: 8, cursor: t.mint ? 'pointer' : 'default', border: '1px solid rgba(239,68,68,0.12)' }}
+                          >
+                            <div>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', fontFamily: 'monospace' }}>{t.symbol}</span>
+                              <span style={{ fontSize: 11, color: subColor, marginLeft: 6 }}>{t.name.length > 28 ? t.name.slice(0, 28) + '…' : t.name}</span>
+                            </div>
+                            <span style={{ fontSize: 11, color: subColor, fontFamily: 'monospace' }}>${t.value.toFixed(4)}</span>
+                          </div>
+                        ))}
+                        {tokenData.junkTokenCount > 8 && (
+                          <p style={{ fontSize: 11, color: subColor, textAlign: 'center', marginTop: 2 }}>
+                            + {tokenData.junkTokenCount - 8} more junk tokens
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ marginBottom: 24 }}>
                 <TierInfoPanel type="free" />
