@@ -18,16 +18,21 @@ sol.id is an identity verification and sybil-detection layer for Solana. It serv
 ## Features
 
 - 🔍 Lookup any `.sol` domain or raw Solana wallet address
-- 📊 Reputation score (0–100) based on on-chain activity
+- 📊 Reputation score (0–100) based on on-chain activity, capped by sybil risk level
 - 💰 Total wallet value in USD — SOL + all SPL tokens via Helius DAS
 - 🚨 Sybil detection — circular transfers, round-amount flagging, wash trading score
+- ⚡ Quick in-out velocity — flags SOL received and forwarded within 1 hour (drainer/bot pattern)
 - 🪤 Dusting scan — detects dust airdrops and wallet-drainer token campaigns
+- 🔬 Program Interaction Profile (Pro) — categorizes every on-chain program called: DEX, Staking, Lending, NFT, Perps, Infra, Bridge, Unknown
+- ☠️ Malicious program detection (Pro) — red alert when wallet has interacted with known drainer programs
+- 📈 DeFi Legitimacy Score (Pro) — ratio of recognized protocol calls vs unknown calls (0–100%)
+- 🔓 Token approval detection (Pro) — surfaces `approve` instructions delegating token authority to unknown programs
 - 🤖 Agent Identity API — machine-readable trust verdict for autonomous agents
 - 📤 On-chain verdict publishing via Solana Memo program
-- 📄 PDF report export (Pro) — includes full token scan section
+- 📄 PDF report export (Pro) — includes full analysis and token scan section
 - ⚖️ Side-by-side wallet comparison
-- 🔗 Shareable report links
-- 💳 Pro unlock via KIRAPAY — pay with any token from any chain
+- 🔗 Shareable report links — wallet address links directly to Solscan
+- 💳 Pro unlock via KIRAPAY — pay $5 with any token from any chain (cross-chain settlement ~2 min)
 - 🌙 Dark/light mode
 
 ---
@@ -40,7 +45,7 @@ A number from **0 to 100** computed from three on-chain signals:
 score = txScore + balScore + ageScore
 ```
 
-The raw score is then capped based on sybil risk so a confirmed drainer wallet cannot score high just from transaction volume:
+The raw score is capped by sybil risk level. A confirmed drainer can't score 70 just because it has lots of transactions:
 
 | Sybil Risk | Score Cap |
 |---|---|
@@ -83,6 +88,16 @@ ageScore = min(20, round((walletAgeDays / 365) × 20))
 | Round-amount transfers | 10+ detected | +25 |
 | Elevated wash score | 40–69 / 100 | +8 |
 | High wash score | 70+ / 100 | +20 |
+| Quick in-out (<1h) | 3–9 detected | +15 |
+| Quick in-out (<1h) | 10+ detected | +30 |
+| Dust airdrops | 5–19 received | +10 |
+| Dust airdrops | 20+ received | +20 |
+| Junk tokens in portfolio | 11–20 tokens | +15 |
+| Junk tokens in portfolio | 20+ tokens | +35 |
+| Token approval to unknown program | 1–2 detected | +10 |
+| Token approval to unknown program | 3+ detected | +25 |
+| Malicious program interaction | Any detected | +60 |
+| No protocol activity | DeFi legit < 5% with other signals | +15 |
 
 - Risk ≥ 50 → 🚨 **High Risk**
 - Risk ≥ 20 → ⚠️ **Medium Risk**
@@ -125,6 +140,41 @@ washScore     = min(100, circularScore + roundScore)
 
 ---
 
+## Program Interaction Profile (Pro)
+
+Every parsed transaction is checked against a registry of ~35 known Solana programs. Each program call is categorized:
+
+| Category | Examples |
+|---|---|
+| DEX | Jupiter, Raydium, Orca, OpenBook, Phoenix |
+| Staking | Marinade, Jito |
+| Lending | Solend, Kamino |
+| NFT | Tensor, Magic Eden, Metaplex, Bubblegum |
+| Perps | Drift, Mango, Zeta |
+| Infra | SNS, Bonfida, SPL Governance, Squads, Wormhole |
+| Bridge | Allbridge, deBridge |
+| Unknown | Any program not in the registry |
+
+```
+defiLegitScore = (legitCalls / nonSystemCalls) × 100
+```
+
+Where `legitCalls` = DEX + Staking + Lending + NFT + Perps + Infra + Bridge calls.
+
+If a wallet has lots of transactions but none of them touch a known protocol, that's a red flag. Known malicious program interactions trigger a separate alert and add +60 to sybil risk.
+
+---
+
+## Quick In-Out Velocity
+
+For every inbound SOL transfer, we check if an outbound went out within the same hour. Drainers forward instantly. Bots cycle in minutes. Real users almost never do this.
+
+```
+quickFlipCount = inbound SOL transfers where an outbound followed within 3600s
+```
+
+---
+
 ## Analysis Tiers
 
 | Tier | Transactions | Speed | Features |
@@ -133,9 +183,7 @@ washScore     = min(100, circularScore + roundScore)
 | Free Complete | Up to 100 txs | ~6 min | Same as Quick, user-defined depth |
 | Pro | Up to 1000 txs | ~1 min | Full analysis, funding graph, wash score, PDF export |
 
-Pro is unlocked via a $5 KIRAPAY payment, scoped per address.
-
-> KIRAPAY merchant activation is pending. A demo unlock button is available in the meantime.
+Pro is unlocked via a $5 KIRAPAY payment, scoped per address. Payments are accepted in any token from any chain. Cross-chain settlement typically takes ~2 minutes. A demo unlock button is also available for testing.
 
 ---
 
