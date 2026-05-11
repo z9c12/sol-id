@@ -177,7 +177,7 @@ export default function Home() {
                   <p style={{ fontSize: 22, fontWeight: 800, color: dark ? '#fff' : '#111', fontFamily: "'Space Mono', monospace" }}>
                     {data.domain}{!isValidSolanaAddress(data.domain) && data.domain !== 'My Wallet' ? '.sol' : ''}
                   </p>
-                  <p style={{ fontSize: 12, color: subColor, fontFamily: 'monospace', marginTop: 2 }}>{data.wallet}</p>
+                  <a href={`https://solscan.io/account/${data.wallet}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: subColor, fontFamily: 'monospace', marginTop: 2, display: 'block', textDecoration: 'underline', cursor: 'pointer' }}>{data.wallet}</a>
                   <p style={{ fontSize: 12, color: subColor, marginTop: 4 }}>🕐 Age: {walletAge(data.walletAgeDays)}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
