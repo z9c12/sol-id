@@ -256,9 +256,13 @@ app/
 │   ├── lookup/route.js            # SNS domain resolution
 │   └── rpc/route.js               # Alchemy RPC proxy
 hooks/
-└── useSolId.js                    # All state and logic
+├── useSolId.js                    # Main orchestration hook
+├── useKiraPayment.js              # Payment flow, polling, session recovery
+└── useChainPublish.js             # On-chain verdict publishing via Memo program
 lib/
-└── wallet-utils.js                # Score formula, sybil risk, helpers
+├── wallet-utils.js                # Score formula, sybil risk, helpers
+├── export-pdf.js                  # PDF report generation
+└── rpc-client.js                  # Shared RPC connection with fallbacks
 ```
 
 ---
