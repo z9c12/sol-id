@@ -171,7 +171,7 @@ export function useSolId() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const exportPDF = () => exportPDFDoc({ data, proAnalysis, completeAnalysis, quickAnalysis, tokenData, displayScore })
+  const exportPDF = () => exportPDFDoc({ data, proAnalysis, completeAnalysis, quickAnalysis, tokenData, displayScore, sybil })
 
   // ── On-chain publishing ───────────────────────────────────────────────────────
   const publishNow = async () => {
